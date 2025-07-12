@@ -5,6 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Http;
 using Amazon.S3;
+using Microsoft.EntityFrameworkCore;
+using RAG.Data;
+using RAG.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,9 +28,16 @@ var tokenValidationParameters = new TokenValidationParameters
 builder.Services.AddSingleton(tokenValidationParameters);
 builder.Services.AddAWSService<IAmazonS3>();
 builder.Services.AddScoped<S3StorageService>();
+// Configurazione database SQLite
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? 
+                     "Data Source=rag_database.db"));
+
+// Servizi applicazione
 builder.Services.AddScoped<IUserConfigService, UserConfigService>();
 builder.Services.AddScoped<IS3StorageService, S3StorageService>();
 builder.Services.AddSingleton<IPineconeService>(sp => sp.GetRequiredService<PineconeService>());
+builder.Services.AddScoped<SqliteDataService>();
 
 // Configurazione Pinecone
 var pineconeApiKey = "pcsk_72Bbs7_TuyDgTjhKdGbL1EhFx8hSJctXBmpp6nxwJVtrkfdaxPu7fWsr5Qdj5zuJN3gPL4";
@@ -54,6 +64,97 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+// Inizializzazione database
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    context.Database.EnsureCreated();
+    
+    // Seed dati di esempio se necessario
+    if (!context.UserConfigurations.Any())
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("Inizializzazione dati di esempio nel database...");
+        
+        // Crea configurazione utente di base
+        var sampleUserId = Guid.NewGuid();
+        var sampleConfig = new RAG.Models.UserConfiguration
+        {
+            UserId = sampleUserId
+        };
+        context.UserConfigurations.Add(sampleConfig);
+        
+        // Crea knowledge rules separatamente
+        var knowledgeRules = new List<RAG.Models.KnowledgeRule>
+        {
+            new RAG.Models.KnowledgeRule
+            {
+                Id = Guid.NewGuid(),
+                Content = "Questa è una regola di conoscenza di esempio",
+                Type = "text"
+            },
+            new RAG.Models.KnowledgeRule
+            {
+                Id = Guid.NewGuid(),
+                Content = "Contenuto del documento PDF di esempio",
+                Type = "file",
+                FileName = "esempio.pdf"
+            }
+        };
+        
+        // Imposta shadow property per knowledge rules
+        foreach (var kr in knowledgeRules)
+        {
+            context.KnowledgeRules.Add(kr);
+            context.Entry(kr).Property("UserId").CurrentValue = sampleUserId;
+        }
+        
+        // Crea tone rules separatamente
+        var toneRules = new List<RAG.Models.ToneRule>
+        {
+            new RAG.Models.ToneRule
+            {
+                Id = Guid.NewGuid(),
+                Content = "Rispondi sempre in modo professionale e cortese"
+            },
+            new RAG.Models.ToneRule
+            {
+                Id = Guid.NewGuid(),
+                Content = "Usa un linguaggio semplice e comprensibile"
+            }
+        };
+        
+        // Imposta shadow property per tone rules
+        foreach (var tr in toneRules)
+        {
+            context.ToneRules.Add(tr);
+            context.Entry(tr).Property("UserId").CurrentValue = sampleUserId;
+        }
+        
+        // Aggiungi domande di esempio
+        var sampleQuestions = new List<RAG.Models.UnansweredQuestion>
+        {
+            new RAG.Models.UnansweredQuestion
+            {
+                Id = Guid.NewGuid(),
+                Question = "Come posso configurare il sistema?",
+                Context = "Utente che sta imparando ad usare il sistema"
+            },
+            new RAG.Models.UnansweredQuestion
+            {
+                Id = Guid.NewGuid(),
+                Question = "Quale è la differenza tra knowledge rules e tone rules?",
+                Context = "Domanda tecnica sulla struttura del sistema"
+            }
+        };
+        
+        context.UnansweredQuestions.AddRange(sampleQuestions);
+        context.SaveChanges();
+        
+        logger.LogInformation("Dati di esempio inizializzati con successo.");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

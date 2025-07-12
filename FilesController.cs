@@ -2,18 +2,19 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using RAG.Models;
 
-public class ToneRule { public string Content { get; set; } }
+// Classi legacy per compatibilità con UserConfigService
+public class ToneRuleLegacy { public string Content { get; set; } = string.Empty; }
 public class KnowledgeRuleDto {
-    public string Type { get; set; }
+    public string Type { get; set; } = string.Empty;
     public string? Content { get; set; }
     public string? FileName { get; set; }
     public string? S3Key { get; set; }
 }
-public class UserConfig {
-    public string UserId { get; set; }
-    public string? FallbackEmail { get; set; }
-    public List<ToneRule>? ToneRules { get; set; }
+public class UserConfigLegacy {
+    public string UserId { get; set; } = string.Empty;
+    public List<ToneRuleLegacy>? ToneRules { get; set; }
     public List<KnowledgeRuleDto>? KnowledgeRules { get; set; }
 }
 

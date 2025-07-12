@@ -16,11 +16,11 @@ public interface IUserConfigService
     /// <summary>
     /// Effettua il parsing della form di configurazione utente.
     /// </summary>
-    Task<UserConfig> ParseUserConfigAsync(IFormCollection form);
+    Task<UserConfigLegacy> ParseUserConfigAsync(IFormCollection form);
     /// <summary>
     /// Serializza la configurazione utente in formato testuale.
     /// </summary>
-    string SerializeUserConfig(UserConfig config);
+    string SerializeUserConfig(UserConfigLegacy config);
 }
 
 /// <summary>
@@ -48,15 +48,13 @@ public class UserConfigService : IUserConfigService
         return doc.Text;
     }
 
-    public async Task<UserConfig> ParseUserConfigAsync(IFormCollection form)
+    public async Task<UserConfigLegacy> ParseUserConfigAsync(IFormCollection form)
     {
-        // Parsing fallback email
-        var fallbackEmail = form["fallbackEmail"].FirstOrDefault();
         // Parsing delle regole di tono
         var toneRulesJson = form["toneRules"].FirstOrDefault();
         var toneRules = !string.IsNullOrEmpty(toneRulesJson)
-            ? JsonSerializer.Deserialize<List<ToneRule>>(toneRulesJson)
-            : new List<ToneRule>();
+            ? JsonSerializer.Deserialize<List<ToneRuleLegacy>>(toneRulesJson)
+            : new List<ToneRuleLegacy>();
 
         // Parsing delle knowledge rules (testo o file)
         var knowledgeRules = new List<KnowledgeRuleDto>();
@@ -102,20 +100,17 @@ public class UserConfigService : IUserConfigService
             n++;
         }
 
-        return new UserConfig
+        return new UserConfigLegacy
         {
-            FallbackEmail = fallbackEmail,
             ToneRules = toneRules,
             KnowledgeRules = knowledgeRules
         };
     }
 
-    public string SerializeUserConfig(UserConfig config)
+    public string SerializeUserConfig(UserConfigLegacy config)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"UserId: {config.UserId}");
-        if (!string.IsNullOrEmpty(config.FallbackEmail))
-            sb.AppendLine($"FallbackEmail: {config.FallbackEmail}");
         if (config.ToneRules != null && config.ToneRules.Count > 0)
         {
             sb.AppendLine("ToneRules:");
