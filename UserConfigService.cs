@@ -3,6 +3,10 @@ using Microsoft.AspNetCore.Http;
 using System.IO;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
+using System.Text;
+using Xceed.Words.NET;
 
 /// <summary>
 /// Servizio per il parsing e la serializzazione della configurazione utente.
@@ -24,6 +28,26 @@ public interface IUserConfigService
 /// </summary>
 public class UserConfigService : IUserConfigService
 {
+    private string ExtractTextFromPdf(Stream pdfStream)
+    {
+        using var pdf = PdfDocument.Open(pdfStream);
+        var sb = new StringBuilder();
+        foreach (Page page in pdf.GetPages())
+        {
+            sb.AppendLine(page.Text);
+        }
+        return sb.ToString();
+    }
+
+    private string ExtractTextFromDocx(Stream docxStream)
+    {
+        using var ms = new MemoryStream();
+        docxStream.CopyTo(ms);
+        ms.Position = 0;
+        using var doc = DocX.Load(ms);
+        return doc.Text;
+    }
+
     public async Task<UserConfig> ParseUserConfigAsync(IFormCollection form)
     {
         // Parsing fallback email
@@ -51,8 +75,27 @@ public class UserConfigService : IUserConfigService
                 var fileName = form[$"knowledgeRules[{n}][fileName]"].FirstOrDefault();
                 if (file != null)
                 {
-                    using var reader = new StreamReader(file.OpenReadStream());
-                    var fileContent = await reader.ReadToEndAsync();
+                    string fileContent;
+                    var ext = fileName != null ? Path.GetExtension(fileName).ToLowerInvariant() : string.Empty;
+                    if (file.ContentType == "application/pdf" || ext == ".pdf")
+                    {
+                        fileContent = ExtractTextFromPdf(file.OpenReadStream());
+                    }
+                    else if (file.ContentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || ext == ".docx")
+                    {
+                        fileContent = ExtractTextFromDocx(file.OpenReadStream());
+                    }
+                    else if (file.ContentType == "text/plain" || ext == ".txt")
+                    {
+                        using var reader = new StreamReader(file.OpenReadStream());
+                        fileContent = await reader.ReadToEndAsync();
+                    }
+                    else
+                    {
+                        // Fallback: tenta di leggere come testo
+                        using var reader = new StreamReader(file.OpenReadStream());
+                        fileContent = await reader.ReadToEndAsync();
+                    }
                     knowledgeRules.Add(new KnowledgeRuleDto { Type = "file", FileName = fileName, Content = fileContent });
                 }
             }

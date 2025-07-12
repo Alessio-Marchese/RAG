@@ -3,6 +3,17 @@
 ## Descrizione Generale
 Questa applicazione ASP.NET Core gestisce la configurazione utente, l'upload di file su AWS S3 e la gestione di embeddings tramite Pinecone. Il codice è stato refattorizzato per garantire chiarezza, manutenibilità, separazione delle responsabilità e aderenza ai principi SOLID.
 
+## Formati di file supportati per le Knowledge Rules
+
+L'applicazione supporta l'estrazione automatica del testo dai seguenti formati di file allegati alle knowledge rules:
+
+- **PDF (.pdf)**: Il testo viene estratto da tutte le pagine tramite la libreria PdfPig.
+- **Word (.docx)**: Il testo viene estratto tramite la libreria DocX.
+- **Testo semplice (.txt)**: Il contenuto viene letto come testo puro.
+- **Altri formati**: Vengono letti come testo puro (fallback), ma il risultato potrebbe non essere ottimale.
+
+> **Nota:** Per supportare PDF e DOCX, assicurati che i pacchetti `UglyToad.PdfPig` e `Xceed.Words.NET` siano installati nel progetto.
+
 ## Struttura dei Moduli Principali
 
 - **FilesController**: Espone endpoint API per l'upload della configurazione utente. Si occupa solo di orchestrare i servizi e non contiene logica di parsing o serializzazione.
@@ -24,6 +35,8 @@ Questa applicazione ASP.NET Core gestisce la configurazione utente, l'upload di 
 - AWS SDK S3
 - Pinecone API (via HttpClient)
 - Microsoft.AspNetCore.Authentication.JwtBearer
+- UglyToad.PdfPig (per PDF)
+- Xceed.Words.NET (per DOCX)
 
 ## Esempio di Flusso Upload Configurazione
 1. L'utente invia una form con le regole di tono e conoscenza.
@@ -34,6 +47,7 @@ Questa applicazione ASP.NET Core gestisce la configurazione utente, l'upload di 
 ## Estendibilità
 - Per aggiungere nuove regole o logiche di serializzazione, estendere UserConfigService.
 - Per supportare altri storage provider, implementare IS3StorageService.
+- Per aggiungere il supporto ad altri formati file, aggiungere un nuovo ramo nella funzione di parsing dei file in UserConfigService.
 
 ## Sicurezza
 - Validazione JWT tramite middleware custom.
