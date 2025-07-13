@@ -65,9 +65,7 @@ namespace RAG.Controllers
                     knowledgeRules = configuration.KnowledgeRules.Select(kr => new
                     {
                         id = kr.Id,
-                        content = kr.Content,
-                        type = kr.Type,
-                        fileName = kr.FileName
+                        content = kr.Content
                     }),
                     toneRules = configuration.ToneRules.Select(tr => new
                     {
@@ -78,9 +76,7 @@ namespace RAG.Controllers
                     {
                         id = f.Id,
                         name = f.Name,
-                        contentType = f.ContentType,
-                        size = f.Size,
-                        content = f.Content
+                        size = f.Size
                     })
                 };
 
@@ -143,9 +139,7 @@ namespace RAG.Controllers
                 var knowledgeRulesToAdd = request.KnowledgeRules?.Select(kr => new KnowledgeRule
                 {
                     Id = kr.Id ?? Guid.NewGuid(),
-                    Content = kr.Content,
-                    Type = kr.Type,
-                    FileName = kr.FileName
+                    Content = kr.Content
                 }).ToList();
 
                 var toneRulesToAdd = request.ToneRules?.Select(tr => new RAG.Models.ToneRule
@@ -159,7 +153,7 @@ namespace RAG.Controllers
                     Id = f.Id ?? Guid.NewGuid(),
                     Name = f.Name,
                     ContentType = f.ContentType,
-                    Size = f.Size,
+                    Size = f.Size > 0 ? f.Size : CalculateBase64Size(f.Content),
                     Content = f.Content
                 }).ToList();
 
@@ -210,6 +204,44 @@ namespace RAG.Controllers
             
             return userId;
         }
+
+        /// <summary>
+        /// Calcola la dimensione del file dal contenuto Base64
+        /// </summary>
+        /// <param name="base64Content">Contenuto Base64 del file</param>
+        /// <returns>Dimensione in byte</returns>
+        private long CalculateBase64Size(string base64Content)
+        {
+            if (string.IsNullOrEmpty(base64Content))
+                return 0;
+            
+            try
+            {
+                // Rimuovi eventuali header Base64 (data:application/pdf;base64,)
+                var cleanBase64 = base64Content;
+                if (base64Content.Contains(","))
+                {
+                    cleanBase64 = base64Content.Split(',')[1];
+                }
+                
+                // Calcola la dimensione: ogni 4 caratteri Base64 rappresentano 3 byte
+                var base64Length = cleanBase64.Length;
+                var padding = 0;
+                
+                // Conta i caratteri di padding
+                if (base64Length > 0 && cleanBase64[base64Length - 1] == '=')
+                    padding++;
+                if (base64Length > 1 && cleanBase64[base64Length - 2] == '=')
+                    padding++;
+                
+                // Formula: (base64Length * 3) / 4 - padding
+                return (base64Length * 3) / 4 - padding;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
     }
 
     /// <summary>
@@ -232,8 +264,6 @@ namespace RAG.Controllers
     {
         public Guid? Id { get; set; }
         public string Content { get; set; } = string.Empty;
-        public string Type { get; set; } = "text";
-        public string? FileName { get; set; }
     }
 
     /// <summary>

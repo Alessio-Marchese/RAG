@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using RAG.Data;
 using RAG.Models;
+using UglyToad.PdfPig;
+using Xceed.Words.NET;
 
 namespace RAG.Services
 {
@@ -318,9 +320,7 @@ namespace RAG.Services
                 
                 var newRule = new KnowledgeRule
                 {
-                    Content = request.Content,
-                    Type = request.Type,
-                    FileName = request.FileName
+                    Content = request.Content
                 };
 
                 _context.Entry(newRule).Property("UserId").CurrentValue = userId;
@@ -580,14 +580,12 @@ namespace RAG.Services
                 // Aggiungi la risposta come knowledge rule
                 var knowledgeRequest = new CreateKnowledgeRuleRequest
                 {
-                    Content = $"Q: {question.Question}\nA: {request.Answer}",
-                    Type = "text"
+                    Content = $"Q: {question.Question}\nA: {request.Answer}"
                 };
 
                 var newRule = new KnowledgeRule
                 {
-                    Content = knowledgeRequest.Content,
-                    Type = knowledgeRequest.Type
+                    Content = knowledgeRequest.Content
                 };
 
                 _context.Entry(newRule).Property("UserId").CurrentValue = request.UserId;
@@ -674,22 +672,11 @@ namespace RAG.Services
             {
                 _logger.LogInformation($"[UploadConfigurationToS3Async] Upload configurazione su S3 per userId: {configuration.UserId}");
                 
-                // Crea configurazione legacy per compatibilità
-                var legacyConfig = new UserConfigLegacy
-                {
-                    UserId = configuration.UserId.ToString(),
-                    ToneRules = configuration.ToneRules.Select(tr => new ToneRuleLegacy { Content = tr.Content }).ToList(),
-                    KnowledgeRules = configuration.KnowledgeRules.Select(kr => new KnowledgeRuleDto
-                    {
-                        Type = kr.Type,
-                        Content = kr.Content,
-                        FileName = kr.FileName
-                    }).ToList()
-                };
-
-                var serializedConfig = _userConfigService.SerializeUserConfig(legacyConfig);
+                // Unifica Files e KnowledgeRules in un unico contenuto testuale
+                var unifiedContent = await UnifyFilesAndKnowledgeRulesAsync(configuration);
+                
                 var fileNameToUpload = "user_config.txt";
-                var fileBytes = System.Text.Encoding.UTF8.GetBytes(serializedConfig);
+                var fileBytes = System.Text.Encoding.UTF8.GetBytes(unifiedContent);
                 
                 using var stream = new MemoryStream(fileBytes);
                 var formFile = new FormFile(stream, 0, fileBytes.Length, "file", fileNameToUpload)
@@ -709,6 +696,128 @@ namespace RAG.Services
                 _logger.LogError(ex, $"[UploadConfigurationToS3Async] Errore durante l'upload su S3 per userId: {configuration.UserId}");
                 // Non lanciare l'eccezione per evitare di bloccare l'operazione principale
             }
+        }
+
+        /// <summary>
+        /// Unifica Files e KnowledgeRules in un unico contenuto testuale
+        /// </summary>
+        /// <param name="configuration">Configurazione utente</param>
+        /// <returns>Contenuto testuale unificato</returns>
+        private async Task<string> UnifyFilesAndKnowledgeRulesAsync(UserConfiguration configuration)
+        {
+            var sb = new System.Text.StringBuilder();
+            
+            // Estrai testo dai file
+            foreach (var file in configuration.Files)
+            {
+                try
+                {
+                    string fileText = await ExtractTextFromFileAsync(file);
+                    if (!string.IsNullOrWhiteSpace(fileText))
+                    {
+                        sb.AppendLine(fileText);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, $"[UnifyFilesAndKnowledgeRulesAsync] Errore nell'estrazione del testo dal file {file.Name}");
+                }
+            }
+            
+            // Aggiungi contenuto delle knowledge rules
+            foreach (var knowledgeRule in configuration.KnowledgeRules)
+            {
+                if (!string.IsNullOrWhiteSpace(knowledgeRule.Content))
+                {
+                    sb.AppendLine(knowledgeRule.Content);
+                }
+            }
+            
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Estrae il testo da un file basandosi sul ContentType
+        /// </summary>
+        /// <param name="file">File da processare</param>
+        /// <returns>Testo estratto</returns>
+        private async Task<string> ExtractTextFromFileAsync(RAG.Models.File file)
+        {
+            if (string.IsNullOrEmpty(file.Content))
+                return string.Empty;
+
+            try
+            {
+                // Decodifica Base64
+                var cleanBase64 = file.Content;
+                if (file.Content.Contains(","))
+                {
+                    cleanBase64 = file.Content.Split(',')[1];
+                }
+                
+                var fileBytes = Convert.FromBase64String(cleanBase64);
+                using var stream = new MemoryStream(fileBytes);
+                
+                // Estrai testo basandosi sul ContentType
+                var contentType = file.ContentType.ToLowerInvariant();
+                var fileName = file.Name.ToLowerInvariant();
+                
+                if (contentType.Contains("pdf") || fileName.EndsWith(".pdf"))
+                {
+                    return ExtractTextFromPdf(stream);
+                }
+                else if (contentType.Contains("vnd.openxmlformats-officedocument.wordprocessingml.document") || 
+                         contentType.Contains("docx") || fileName.EndsWith(".docx"))
+                {
+                    return ExtractTextFromDocx(stream);
+                }
+                else if (contentType.Contains("text/plain") || fileName.EndsWith(".txt"))
+                {
+                    using var reader = new StreamReader(stream);
+                    return await reader.ReadToEndAsync();
+                }
+                else
+                {
+                    // Fallback: tenta di leggere come testo
+                    using var reader = new StreamReader(stream);
+                    return await reader.ReadToEndAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[ExtractTextFromFileAsync] Errore nell'estrazione del testo dal file {file.Name}");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Estrae il testo da un PDF utilizzando PdfPig
+        /// </summary>
+        /// <param name="pdfStream">Stream del PDF</param>
+        /// <returns>Testo estratto</returns>
+        private string ExtractTextFromPdf(Stream pdfStream)
+        {
+            using var pdf = UglyToad.PdfPig.PdfDocument.Open(pdfStream);
+            var sb = new System.Text.StringBuilder();
+            foreach (var page in pdf.GetPages())
+            {
+                sb.AppendLine(page.Text);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Estrae il testo da un DOCX utilizzando DocX
+        /// </summary>
+        /// <param name="docxStream">Stream del DOCX</param>
+        /// <returns>Testo estratto</returns>
+        private string ExtractTextFromDocx(Stream docxStream)
+        {
+            using var ms = new MemoryStream();
+            docxStream.CopyTo(ms);
+            ms.Position = 0;
+            using var doc = Xceed.Words.NET.DocX.Load(ms);
+            return doc.Text;
         }
 
         private async Task UploadKnowledgeRuleToS3Async(Guid userId, KnowledgeRule rule)

@@ -11,7 +11,6 @@ namespace RAG.Controllers
     /// </summary>
     [ApiController]
     [Route("api/unanswered-questions")]
-    [Authorize]
     public class UnansweredQuestionsController : ControllerBase
     {
         private readonly SqliteDataService _dataService;

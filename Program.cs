@@ -91,15 +91,12 @@ using (var scope = app.Services.CreateScope())
             new RAG.Models.KnowledgeRule
             {
                 Id = Guid.NewGuid(),
-                Content = "Questa è una regola di conoscenza di esempio",
-                Type = "text"
+                Content = "Questa è una regola di conoscenza di esempio"
             },
             new RAG.Models.KnowledgeRule
             {
                 Id = Guid.NewGuid(),
-                Content = "Contenuto del documento PDF di esempio",
-                Type = "file",
-                FileName = "esempio.pdf"
+                Content = "Contenuto del documento PDF di esempio"
             }
         };
         

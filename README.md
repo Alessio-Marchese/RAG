@@ -11,7 +11,6 @@ Questa applicazione ASP.NET Core gestisce la configurazione utente, l'upload di 
 
 ### Endpoint Knowledge Base
 - **POST /api/users/{userId}/knowledge-rules**: Aggiunge nuovo item testuale alla knowledge base
-- **POST /api/users/{userId}/knowledge-rules/upload**: Upload file PDF per estrazione automatica
 - **GET /api/users/{userId}/knowledge-rules/{ruleId}**: Recupera una knowledge rule specifica
 - **PUT /api/users/{userId}/knowledge-rules/{ruleId}**: Modifica item esistente (editing inline)
 - **DELETE /api/users/{userId}/knowledge-rules/{ruleId}**: Rimuove item dalla knowledge base
@@ -132,15 +131,41 @@ L'applicazione supporta l'estrazione automatica del testo dai seguenti formati d
 ```bash
 # Recupera configurazione
 GET /api/users/{userId}/configuration
+```
 
+**Risposta:**
+```json
+{
+  "knowledgeRules": [
+    {
+      "id": "guid",
+      "content": "Contenuto della regola"
+    }
+  ],
+  "toneRules": [
+    {
+      "id": "guid",
+      "content": "Regola di comportamento"
+    }
+  ],
+  "files": [
+    {
+      "id": "guid",
+      "name": "documento.pdf",
+      "size": 1024000
+    }
+  ]
+}
+```
+
+```bash
 # Aggiorna configurazione
 PUT /api/users/{userId}/configuration
 {
   "knowledgeRules": [
     {
       "id": "kr-1",
-      "content": "Contenuto della regola",
-      "type": "text"
+      "content": "Contenuto della regola"
     }
   ],
   "toneRules": [
@@ -157,14 +182,8 @@ PUT /api/users/{userId}/configuration
 # Aggiungi testo
 POST /api/users/{userId}/knowledge-rules
 {
-  "content": "Nuovo contenuto testuale",
-  "type": "text"
+  "content": "Nuovo contenuto testuale"
 }
-
-# Upload PDF
-POST /api/users/{userId}/knowledge-rules/upload
-Content-Type: multipart/form-data
-file: [file.pdf]
 
 # Modifica item esistente
 PUT /api/users/{userId}/knowledge-rules/{ruleId}

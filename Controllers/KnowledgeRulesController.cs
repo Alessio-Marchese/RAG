@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RAG.Models;
 using RAG.Services;
-using UglyToad.PdfPig;
-using System.Text;
 
 namespace RAG.Controllers
 {
@@ -81,8 +79,6 @@ namespace RAG.Controllers
                 {
                     id = knowledgeRule.Id,
                     content = knowledgeRule.Content,
-                    type = knowledgeRule.Type,
-                    fileName = knowledgeRule.FileName,
                     createdAt = knowledgeRule.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
                 };
 
@@ -100,99 +96,7 @@ namespace RAG.Controllers
             }
         }
 
-        /// <summary>
-        /// Upload di un file PDF per estrazione automatica del testo
-        /// </summary>
-        /// <param name="userId">ID dell'utente</param>
-        /// <param name="file">File PDF da processare</param>
-        /// <returns>Knowledge rule creata con il contenuto estratto</returns>
-        [HttpPost("upload")]
-        public async Task<IActionResult> UploadPdfFile(Guid userId, IFormFile file)
-        {
-            try
-            {
-                _logger.LogInformation($"[UploadPdfFile] Upload PDF per userId: {userId}");
-                
-                // Verifica autorizzazione
-                var currentUserId = GetCurrentUserId();
-                if (currentUserId != userId)
-                {
-                    _logger.LogWarning($"[UploadPdfFile] Tentativo di accesso non autorizzato. UserId richiesto: {userId}, UserId corrente: {currentUserId}");
-                    return Forbid();
-                }
 
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest(new ErrorResponse { Message = "Nessun file selezionato" });
-                }
-
-                // Verifica che sia un PDF
-                var allowedExtensions = new[] { ".pdf" };
-                var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                if (!allowedExtensions.Contains(fileExtension) && 
-                    !file.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
-                {
-                    return BadRequest(new ErrorResponse { Message = "Solo file PDF sono supportati" });
-                }
-
-                // Verifica dimensione file (max 10MB)
-                const long maxFileSize = 10 * 1024 * 1024; // 10MB
-                if (file.Length > maxFileSize)
-                {
-                    return BadRequest(new ErrorResponse { Message = "Il file è troppo grande. Dimensione massima: 10MB" });
-                }
-
-                // Estrai il contenuto del PDF direttamente
-                string extractedContent;
-                using (var stream = file.OpenReadStream())
-                {
-                    try
-                    {
-                        extractedContent = ExtractTextFromPdf(stream);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"[UploadPdfFile] Errore durante l'estrazione del testo dal PDF per userId: {userId}");
-                        return BadRequest(new ErrorResponse { Message = "Errore durante l'estrazione del testo dal PDF" });
-                    }
-                }
-                
-                if (string.IsNullOrWhiteSpace(extractedContent))
-                {
-                    return BadRequest(new ErrorResponse { Message = "Impossibile estrarre testo dal PDF" });
-                }
-
-                var request = new CreateKnowledgeRuleRequest
-                {
-                    Content = extractedContent,
-                    Type = "file",
-                    FileName = file.FileName
-                };
-
-                var knowledgeRule = await _dataService.CreateKnowledgeRuleAsync(userId, request);
-                
-                var response = new
-                {
-                    id = knowledgeRule.Id,
-                    content = knowledgeRule.Content,
-                    type = knowledgeRule.Type,
-                    fileName = knowledgeRule.FileName,
-                    createdAt = knowledgeRule.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                };
-
-                _logger.LogInformation($"[UploadPdfFile] PDF processato con successo per userId: {userId}, ruleId: {knowledgeRule.Id}");
-                return CreatedAtAction(nameof(GetKnowledgeRule), new { userId, ruleId = knowledgeRule.Id }, response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"[UploadPdfFile] Errore durante l'upload del PDF per userId: {userId}");
-                return StatusCode(500, new ErrorResponse
-                {
-                    Message = "Errore interno del server durante l'upload del PDF",
-                    Details = ex.Message
-                });
-            }
-        }
 
         /// <summary>
         /// Recupera una knowledge rule specifica
@@ -227,8 +131,6 @@ namespace RAG.Controllers
                 {
                     id = knowledgeRule.Id,
                     content = knowledgeRule.Content,
-                    type = knowledgeRule.Type,
-                    fileName = knowledgeRule.FileName,
                     createdAt = knowledgeRule.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
                     updatedAt = knowledgeRule.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
                 };
@@ -368,18 +270,7 @@ namespace RAG.Controllers
         /// </summary>
         /// <param name="pdfStream">Stream del PDF</param>
         /// <returns>Testo estratto</returns>
-        private string ExtractTextFromPdf(Stream pdfStream)
-        {
-            using var document = PdfDocument.Open(pdfStream);
-            var text = new StringBuilder();
-            
-            foreach (var page in document.GetPages())
-            {
-                text.AppendLine(page.Text);
-            }
-            
-            return text.ToString();
-        }
+
 
         /// <summary>
         /// Estrae l'ID dell'utente corrente dal token JWT
