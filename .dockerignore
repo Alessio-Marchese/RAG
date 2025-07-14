@@ -1,0 +1,43 @@
+# File di build e output
+bin/
+obj/
+publish/
+
+# File di configurazione locale
+appsettings.Development.json
+appsettings.Local.json
+
+# File di log
+*.log
+
+# File temporanei
+*.tmp
+*.temp
+
+# File di sistema
+.DS_Store
+Thumbs.db
+
+# File di IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# File di controllo versione
+.git/
+.gitignore
+
+# File di deployment
+deploy-production.sh
+deploy-production.ps1
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# File di documentazione
+README.md
+RAG.http
+
+# Database locale (verrà ricreato)
+rag_database.db 

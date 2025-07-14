@@ -11,10 +11,9 @@ using RAG.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 // Configura i parametri di validazione JWT per il middleware custom
 var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSection["Key"] ?? throw new InvalidOperationException("JWT Key is not configured");
 var tokenValidationParameters = new TokenValidationParameters
 {
     ValidateIssuer = true,
@@ -23,11 +22,14 @@ var tokenValidationParameters = new TokenValidationParameters
     ValidateIssuerSigningKey = true,
     ValidIssuer = jwtSection["Issuer"],
     ValidAudience = jwtSection["Audience"],
-    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]))
+    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
 };
 builder.Services.AddSingleton(tokenValidationParameters);
+
+// Servizi AWS S3
 builder.Services.AddAWSService<IAmazonS3>();
 builder.Services.AddScoped<S3StorageService>();
+
 // Configurazione database SQLite
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? 
@@ -36,31 +38,46 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Servizi applicazione
 builder.Services.AddScoped<IUserConfigService, UserConfigService>();
 builder.Services.AddScoped<IS3StorageService, S3StorageService>();
-builder.Services.AddSingleton<IPineconeService>(sp => sp.GetRequiredService<PineconeService>());
 builder.Services.AddScoped<SqliteDataService>();
 
-// Configurazione Pinecone
-var pineconeApiKey = "pcsk_72Bbs7_TuyDgTjhKdGbL1EhFx8hSJctXBmpp6nxwJVtrkfdaxPu7fWsr5Qdj5zuJN3gPL4";
-var pineconeIndexHost = "n8n2-n3lknmm.svc.aped-4627-b74a.pinecone.io";
-builder.Services.AddHttpClient<PineconeService>((sp, client) =>
-{
-    // HttpClient configurato per PineconeService
-});
+// Configurazione Pinecone da appsettings.json
+var pineconeSection = builder.Configuration.GetSection("Pinecone");
+var pineconeApiKey = pineconeSection["ApiKey"] ?? throw new InvalidOperationException("Pinecone ApiKey is not configured");
+var pineconeIndexHost = pineconeSection["IndexHost"] ?? throw new InvalidOperationException("Pinecone IndexHost is not configured");
+builder.Services.AddHttpClient<PineconeService>();
 builder.Services.AddSingleton<PineconeService>(sp =>
 {
     var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(PineconeService));
     return new PineconeService(httpClient, pineconeApiKey, pineconeIndexHost);
 });
 
-builder.Services.AddOpenApi();
+// Configurazione OpenAPI per .NET 8.0
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Configurazione CORS per ambiente di produzione
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowLocalhost8081",
-        policy => policy.WithOrigins("http://localhost:8081")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials());
+    if (builder.Environment.IsDevelopment())
+    {
+        // CORS per sviluppo locale
+        options.AddPolicy("AllowLocalhost8081",
+            policy => policy.WithOrigins("http://localhost:8081")
+                            .AllowAnyHeader()
+                            .AllowAnyMethod()
+                            .AllowCredentials());
+    }
+    else
+    {
+        // CORS per produzione - permette accesso da qualsiasi origine
+        // In produzione, dovresti specificare i domini esatti del frontend
+        options.AddPolicy("AllowProduction",
+            policy => policy.AllowAnyOrigin()
+                            .AllowAnyHeader()
+                            .AllowAnyMethod());
+    }
 });
+
 builder.Services.AddControllers();
 
 var app = builder.Build();
@@ -70,97 +87,22 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     context.Database.EnsureCreated();
-    
-    // Seed dati di esempio se necessario
-    if (!context.UserConfigurations.Any())
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation("Inizializzazione dati di esempio nel database...");
-        
-        // Crea configurazione utente di base
-        var sampleUserId = Guid.NewGuid();
-        var sampleConfig = new RAG.Models.UserConfiguration
-        {
-            UserId = sampleUserId
-        };
-        context.UserConfigurations.Add(sampleConfig);
-        
-        // Crea knowledge rules separatamente
-        var knowledgeRules = new List<RAG.Models.KnowledgeRule>
-        {
-            new RAG.Models.KnowledgeRule
-            {
-                Id = Guid.NewGuid(),
-                Content = "Questa è una regola di conoscenza di esempio"
-            },
-            new RAG.Models.KnowledgeRule
-            {
-                Id = Guid.NewGuid(),
-                Content = "Contenuto del documento PDF di esempio"
-            }
-        };
-        
-        // Imposta shadow property per knowledge rules
-        foreach (var kr in knowledgeRules)
-        {
-            context.KnowledgeRules.Add(kr);
-            context.Entry(kr).Property("UserId").CurrentValue = sampleUserId;
-        }
-        
-        // Crea tone rules separatamente
-        var toneRules = new List<RAG.Models.ToneRule>
-        {
-            new RAG.Models.ToneRule
-            {
-                Id = Guid.NewGuid(),
-                Content = "Rispondi sempre in modo professionale e cortese"
-            },
-            new RAG.Models.ToneRule
-            {
-                Id = Guid.NewGuid(),
-                Content = "Usa un linguaggio semplice e comprensibile"
-            }
-        };
-        
-        // Imposta shadow property per tone rules
-        foreach (var tr in toneRules)
-        {
-            context.ToneRules.Add(tr);
-            context.Entry(tr).Property("UserId").CurrentValue = sampleUserId;
-        }
-        
-        // Aggiungi domande di esempio
-        var sampleQuestions = new List<RAG.Models.UnansweredQuestion>
-        {
-            new RAG.Models.UnansweredQuestion
-            {
-                Id = Guid.NewGuid(),
-                Question = "Come posso configurare il sistema?",
-                Context = "Utente che sta imparando ad usare il sistema"
-            },
-            new RAG.Models.UnansweredQuestion
-            {
-                Id = Guid.NewGuid(),
-                Question = "Quale è la differenza tra knowledge rules e tone rules?",
-                Context = "Domanda tecnica sulla struttura del sistema"
-            }
-        };
-        
-        context.UnansweredQuestions.AddRange(sampleQuestions);
-        context.SaveChanges();
-        
-        logger.LogInformation("Dati di esempio inizializzati con successo.");
-    }
 }
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
+    app.UseHttpsRedirection();
+    app.UseCors("AllowLocalhost8081");
 }
-
-app.UseHttpsRedirection();
-app.UseCors("AllowLocalhost8081");
+else
+{
+    // In produzione, non usiamo HTTPS redirection e Swagger
+    // L'applicazione sarà dietro un reverse proxy (nginx, Apache, etc.)
+    app.UseCors("AllowProduction");
+}
 
 // Middleware custom per validazione JWT da cookie
 app.UseMiddleware<CookieJwtValidationMiddleware>();
@@ -169,28 +111,4 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

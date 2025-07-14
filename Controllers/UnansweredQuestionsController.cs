@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using RAG.Models;
+using RAG.Entities;
 using RAG.Services;
 using System.ComponentModel.DataAnnotations;
 
@@ -53,111 +53,6 @@ namespace RAG.Controllers
                 return StatusCode(500, new ErrorResponse
                 {
                     Message = "Errore interno del server durante il recupero delle domande",
-                    Details = ex.Message
-                });
-            }
-        }
-
-        /// <summary>
-        /// Recupera una domanda specifica
-        /// </summary>
-        /// <param name="questionId">ID della domanda</param>
-        /// <returns>Domanda richiesta</returns>
-        [HttpGet("{questionId}")]
-        public async Task<IActionResult> GetUnansweredQuestion(Guid questionId)
-        {
-            try
-            {
-                _logger.LogInformation($"[GetUnansweredQuestion] Recupero domanda per questionId: {questionId}");
-                
-                var question = await _dataService.GetUnansweredQuestionAsync(questionId);
-                
-                if (question == null)
-                {
-                    _logger.LogWarning($"[GetUnansweredQuestion] Domanda non trovata per questionId: {questionId}");
-                    return NotFound(new ErrorResponse { Message = "Domanda non trovata" });
-                }
-
-                var response = new
-                {
-                    id = question.Id,
-                    question = question.Question,
-                    context = question.Context,
-                    timestamp = question.Timestamp,
-                    createdAt = question.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                };
-
-                _logger.LogInformation($"[GetUnansweredQuestion] Domanda recuperata con successo per questionId: {questionId}");
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"[GetUnansweredQuestion] Errore durante il recupero della domanda per questionId: {questionId}");
-                return StatusCode(500, new ErrorResponse
-                {
-                    Message = "Errore interno del server durante il recupero della domanda",
-                    Details = ex.Message
-                });
-            }
-        }
-
-        /// <summary>
-        /// Crea una nuova domanda non risposta
-        /// </summary>
-        /// <param name="request">Dati della domanda</param>
-        /// <returns>Domanda creata</returns>
-        [HttpPost]
-        public async Task<IActionResult> CreateUnansweredQuestion([FromBody] CreateUnansweredQuestionRequest request)
-        {
-            try
-            {
-                _logger.LogInformation("[CreateUnansweredQuestion] Creazione nuova domanda non risposta");
-                
-                if (request == null)
-                {
-                    return BadRequest(new ErrorResponse { Message = "Richiesta non valida" });
-                }
-
-                // Validazione dati
-                if (!ModelState.IsValid)
-                {
-                    var errors = ModelState.Values
-                        .SelectMany(v => v.Errors)
-                        .Select(e => e.ErrorMessage)
-                        .ToList();
-                    
-                    return BadRequest(new ErrorResponse 
-                    { 
-                        Message = "Dati non validi", 
-                        Details = string.Join(", ", errors) 
-                    });
-                }
-
-                if (string.IsNullOrWhiteSpace(request.Question))
-                {
-                    return BadRequest(new ErrorResponse { Message = "La domanda è obbligatoria" });
-                }
-
-                var question = await _dataService.CreateUnansweredQuestionAsync(request.Question, request.Context);
-                
-                var response = new
-                {
-                    id = question.Id,
-                    question = question.Question,
-                    context = question.Context,
-                    timestamp = question.Timestamp,
-                    createdAt = question.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                };
-
-                _logger.LogInformation($"[CreateUnansweredQuestion] Domanda creata con successo, questionId: {question.Id}");
-                return CreatedAtAction(nameof(GetUnansweredQuestion), new { questionId = question.Id }, response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[CreateUnansweredQuestion] Errore durante la creazione della domanda");
-                return StatusCode(500, new ErrorResponse
-                {
-                    Message = "Errore interno del server durante la creazione della domanda",
                     Details = ex.Message
                 });
             }
@@ -260,14 +155,5 @@ namespace RAG.Controllers
                 });
             }
         }
-    }
-
-    /// <summary>
-    /// Request per creare una nuova domanda non risposta
-    /// </summary>
-    public class CreateUnansweredQuestionRequest
-    {
-        public string Question { get; set; } = string.Empty;
-        public string? Context { get; set; }
     }
 } 

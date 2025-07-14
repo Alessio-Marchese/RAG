@@ -1,6 +1,136 @@
-@RAG_HostAddress = http://localhost:5196
+### RAG API - .NET 8.0 Refactored Backend
+### Endpoint utilizzati dal frontend dopo il refactor completo
 
-GET {{RAG_HostAddress}}/weatherforecast/
-Accept: application/json
+### ========================================
+### AUTENTICAZIONE (Porta 5140)
+### ========================================
 
-###
+### Verifica autenticazione utente
+GET https://localhost:5140/api/auth/me
+Cookie: jwt=your-jwt-token-here
+
+### Logout utente
+POST https://localhost:5140/api/auth/logout
+Cookie: jwt=your-jwt-token-here
+
+### ========================================
+### CONFIGURAZIONE UTENTE (Porta 5196)
+### ========================================
+
+### Carica configurazione utente completa
+GET https://localhost:5196/api/users/{{userId}}/configuration
+Cookie: jwt=your-jwt-token-here
+
+### Salva configurazione utente completa
+PUT https://localhost:5196/api/users/{{userId}}/configuration
+Content-Type: application/json
+Cookie: jwt=your-jwt-token-here
+
+{
+  "knowledgeRules": [
+    {
+      "id": "kr-1",
+      "content": "L'azienda si chiama TechCorp e si occupa di sviluppo software"
+    },
+    {
+      "id": "kr-2", 
+      "content": "Il prodotto principale è un CRM per piccole imprese"
+    }
+  ],
+  "toneRules": [
+    {
+      "id": "tr-1",
+      "content": "Sii sempre professionale ma amichevole"
+    },
+    {
+      "id": "tr-2",
+      "content": "Usa un linguaggio tecnico ma comprensibile"
+    }
+  ],
+  "files": [
+    {
+      "id": "f-1",
+      "name": "presentazione.pdf",
+      "contentType": "application/pdf",
+      "size": 1024000,
+      "content": "base64-encoded-pdf-content"
+    }
+  ]
+}
+
+### Upload file per configurazione
+POST https://localhost:5196/api/files/upload
+Content-Type: multipart/form-data
+Cookie: jwt=your-jwt-token-here
+
+### ========================================
+### DOMANDE NON RISPOSTE (Porta 5196)
+### ========================================
+
+### Recupera tutte le domande senza risposta
+GET https://localhost:5196/api/unanswered-questions
+Cookie: jwt=your-jwt-token-here
+
+### Rispondi a una domanda specifica
+POST https://localhost:5196/api/unanswered-questions/{{questionId}}/answer
+Content-Type: application/json
+Cookie: jwt=your-jwt-token-here
+
+{
+  "answer": "Questa è la risposta alla domanda dell'utente",
+  "userId": "{{userId}}"
+}
+
+### Elimina una domanda non risposta
+DELETE https://localhost:5196/api/unanswered-questions/{{questionId}}
+Cookie: jwt=your-jwt-token-here
+
+### ========================================
+### CHAT ESTERNO
+### ========================================
+
+### Invia messaggio chat e riceve risposta
+POST https://n8n-alessio-marchese.com/webhook/chat
+Content-Type: application/json
+
+{
+  "message": "Ciao, come stai?",
+  "userId": "{{userId}}",
+  "configuration": {
+    "knowledgeRules": [...],
+    "toneRules": [...],
+    "files": [...]
+  }
+}
+
+### ========================================
+### VARIABILI PER TESTING
+### ========================================
+
+@userId = user-123
+@questionId = q-456
+@jwt-token = your-actual-jwt-token-here
+
+### ========================================
+### NOTE TECNICHE
+### ========================================
+
+### Framework: .NET 8.0 (LTS)
+### Database: SQLite con Entity Framework Core 8.0
+### Storage: AWS S3 per file
+### Embeddings: Pinecone
+### Autenticazione: JWT tramite cookie
+### Documentazione: Swagger UI su /swagger
+
+### Endpoint rimossi durante il refactor:
+### - /api/knowledge-rules (controller eliminato)
+### - /api/tone-rules (controller eliminato)
+### - Endpoint di test e mock (rimossi)
+### - Logging eccessivo (semplificato)
+
+### Miglioramenti apportati:
+### - Codice ottimizzato e pulito
+### - Solo funzionalità utilizzate dal frontend
+### - Performance migliorate
+### - Manutenibilità aumentata
+### - Stabilità garantita con .NET 8.0 LTS

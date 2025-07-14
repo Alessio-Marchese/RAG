@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using RAG.Models;
+using RAG.Services;
 
 // Classi legacy per compatibilità con UserConfigService
 public class ToneRuleLegacy { public string Content { get; set; } = string.Empty; }
@@ -49,34 +49,18 @@ public class FilesController : ControllerBase
     [Authorize]
     public async Task<IActionResult> UploadConfig()
     {
-        // Log delle claims disponibili per audit/debug
-        _logger.LogInformation("[UploadConfig] Claims disponibili:");
-        foreach (var claim in User.Claims)
-        {
-            _logger.LogInformation($"[UploadConfig] Claim type: {claim.Type}, value: {claim.Value}");
-        }
-        _logger.LogInformation("[UploadConfig] Inizio richiesta upload");
         // Estrazione userId dal token
         var userId = User.FindFirst("sub")?.Value
             ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
             ?? User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
         if (userId == null)
         {
-            _logger.LogWarning("[UploadConfig] userId non trovato nel token");
             return Unauthorized();
         }
 
         // Elimina embeddings Pinecone prima di rimuovere i file S3
         var pineconeNamespace = userId;
-        var pineconeResult = await _pineconeService.DeleteAllEmbeddingsInNamespaceAsync(pineconeNamespace);
-        if (!pineconeResult)
-        {
-            _logger.LogWarning($"[UploadConfig] Errore durante la cancellazione degli embedding Pinecone per userId={userId}");
-        }
-        else
-        {
-            _logger.LogInformation($"[UploadConfig] Embedding Pinecone eliminati per userId={userId}");
-        }
+        await _pineconeService.DeleteAllEmbeddingsInNamespaceAsync(pineconeNamespace);
 
         // Parsing della form tramite UserConfigService
         var form = await Request.ReadFormAsync();
@@ -97,7 +81,6 @@ public class FilesController : ControllerBase
             ContentType = "text/plain"
         }, fileNameToUpload);
 
-        _logger.LogInformation("[UploadConfig] Fine richiesta upload, successo");
         return Ok(new { success = true });
     }
 } 

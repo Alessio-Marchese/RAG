@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using RAG.Models;
+using RAG.Entities;
 using RAG.Services;
+using FileEntity = RAG.Entities.File;
 
 namespace RAG.Controllers
 {
@@ -13,10 +14,10 @@ namespace RAG.Controllers
     [Authorize]
     public class UsersController : ControllerBase
     {
-            private readonly SqliteDataService _dataService;
-    private readonly ILogger<UsersController> _logger;
+        private readonly SqliteDataService _dataService;
+        private readonly ILogger<UsersController> _logger;
 
-    public UsersController(SqliteDataService dataService, ILogger<UsersController> logger)
+        public UsersController(SqliteDataService dataService, ILogger<UsersController> logger)
         {
             _dataService = dataService;
             _logger = logger;
@@ -54,10 +55,14 @@ namespace RAG.Controllers
                         UserId = userId,
                         KnowledgeRules = new List<KnowledgeRule>(),
                         ToneRules = new List<ToneRule>(),
-                        Files = new List<RAG.Models.File>()
+                        Files = new List<FileEntity>()
                     };
                     
-                    await _dataService.UpdateUserConfigurationAsync(configuration);
+                    await _dataService.UpdateUserConfigurationGranularAsync(userId, 
+                        new List<KnowledgeRule>(), 
+                        new List<ToneRule>(), 
+                        new List<FileEntity>(),
+                        null, null, null);
                 }
 
                 var response = new
@@ -142,13 +147,13 @@ namespace RAG.Controllers
                     Content = kr.Content
                 }).ToList();
 
-                var toneRulesToAdd = request.ToneRules?.Select(tr => new RAG.Models.ToneRule
+                var toneRulesToAdd = request.ToneRules?.Select(tr => new ToneRule
                 {
                     Id = tr.Id ?? Guid.NewGuid(),
                     Content = tr.Content
                 }).ToList();
 
-                var filesToAdd = request.Files?.Select(f => new RAG.Models.File
+                var filesToAdd = request.Files?.Select(f => new FileEntity
                 {
                     Id = f.Id ?? Guid.NewGuid(),
                     Name = f.Name,
@@ -257,27 +262,18 @@ namespace RAG.Controllers
         public List<Guid>? FilesToDelete { get; set; }
     }
 
-    /// <summary>
-    /// Rappresentazione di una knowledge rule nella richiesta
-    /// </summary>
     public class KnowledgeRuleRequest
     {
         public Guid? Id { get; set; }
         public string Content { get; set; } = string.Empty;
     }
 
-    /// <summary>
-    /// Rappresentazione di una tone rule nella richiesta
-    /// </summary>
     public class ToneRuleRequest
     {
         public Guid? Id { get; set; }
         public string Content { get; set; } = string.Empty;
     }
 
-    /// <summary>
-    /// Rappresentazione di un file nella richiesta
-    /// </summary>
     public class FileRequest
     {
         public Guid? Id { get; set; }

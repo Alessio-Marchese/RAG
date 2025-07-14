@@ -1,109 +1,331 @@
 # RAG - Refactored Application Guide
 
 ## Descrizione Generale
-Questa applicazione ASP.NET Core gestisce la configurazione utente, l'upload di file su AWS S3 e la gestione di embeddings tramite Pinecone. Il codice è stato refattorizzato per garantire chiarezza, manutenibilità, separazione delle responsabilità e aderenza ai principi SOLID.
+Questa applicazione ASP.NET Core gestisce la configurazione utente, l'upload di file su AWS S3 e la gestione di embeddings tramite Pinecone. Il codice è stato completamente refattorizzato per mantenere solo le funzionalità effettivamente utilizzate dal frontend, garantendo chiarezza, manutenibilità e performance ottimali.
 
-## Struttura API
+## Endpoint API Utilizzati dal Frontend
 
-### Endpoint Configurazione Utente
-- **GET /api/users/{userId}/configuration**: Recupera la configurazione completa dell'utente
-- **PUT /api/users/{userId}/configuration**: Aggiorna la configurazione utente
+### Endpoint di Autenticazione (Porta 5140)
+- **GET /api/auth/me** - Verifica autenticazione utente
+- **POST /api/auth/logout** - Logout utente
 
-### Endpoint Knowledge Base
-- **POST /api/users/{userId}/knowledge-rules**: Aggiunge nuovo item testuale alla knowledge base
-- **GET /api/users/{userId}/knowledge-rules/{ruleId}**: Recupera una knowledge rule specifica
-- **PUT /api/users/{userId}/knowledge-rules/{ruleId}**: Modifica item esistente (editing inline)
-- **DELETE /api/users/{userId}/knowledge-rules/{ruleId}**: Rimuove item dalla knowledge base
+### Endpoint di Configurazione (Porta 5196)
+- **GET /api/users/{userId}/configuration** - Carica configurazione utente
+- **PUT /api/users/{userId}/configuration** - Salva configurazione utente
+- **POST /api/files/upload** - Upload file per configurazione
 
-### Endpoint Tone Rules
-- **POST /api/users/{userId}/tone-rules**: Aggiunge nuovo item di comportamento
-- **GET /api/users/{userId}/tone-rules/{ruleId}**: Recupera una tone rule specifica
-- **DELETE /api/users/{userId}/tone-rules/{ruleId}**: Rimuove item di comportamento
+### Endpoint Domande Non Risposte (Porta 5196)
+- **GET /api/unanswered-questions** - Recupera domande senza risposta
+- **POST /api/unanswered-questions/{questionId}/answer** - Risponde a una domanda
+- **DELETE /api/unanswered-questions/{questionId}** - Elimina una domanda
 
-### Endpoint Domande Non Risposte
-- **GET /api/unanswered-questions**: Recupera lista domande senza risposta
-- **POST /api/unanswered-questions**: Crea una nuova domanda non risposta
-- **GET /api/unanswered-questions/{questionId}**: Recupera una domanda specifica
-- **POST /api/unanswered-questions/{questionId}/answer**: Fornisce risposta a domanda (la sposta nella knowledge base)
-- **DELETE /api/unanswered-questions/{questionId}**: Scarta domanda non pertinente
+### Endpoint Chat Esterno
+- **POST https://n8n-alessio-marchese.com/webhook/chat** - Invia messaggio chat e riceve risposta
 
-## Formati di file supportati per le Knowledge Rules
+## Funzionalità Principali
 
-L'applicazione supporta l'estrazione automatica del testo dai seguenti formati di file allegati alle knowledge rules:
+### Autenticazione e Gestione Sessione
+- Autenticazione basata su JWT tramite cookie
+- Validazione automatica dei token tramite middleware custom
+- Controllo accessi per garantire che ogni utente acceda solo ai propri dati
 
-- **PDF (.pdf)**: Il testo viene estratto da tutte le pagine tramite la libreria PdfPig.
-- **Word (.docx)**: Il testo viene estratto tramite la libreria DocX.
-- **Testo semplice (.txt)**: Il contenuto viene letto come testo puro.
-- **Altri formati**: Vengono letti come testo puro (fallback), ma il risultato potrebbe non essere ottimale.
+### Configurazione Personalizzata dell'AI
+- **Knowledge Rules**: Regole di conoscenza personalizzate per l'AI
+- **Tone Rules**: Regole di comportamento e tono per l'AI
+- **File Upload**: Supporto per upload di file PDF, DOCX e TXT
+- **Gestione Granulare**: Aggiunta, modifica e rimozione individuale di regole
 
-> **Nota:** Per supportare PDF e DOCX, assicurati che i pacchetti `UglyToad.PdfPig` e `Xceed.Words.NET` siano installati nel progetto.
+### Chat con Assistente AI
+- Integrazione con endpoint esterno per conversazioni AI
+- Utilizzo delle configurazioni personalizzate per personalizzare le risposte
 
-## Struttura dei Moduli Principali
+### Gestione Knowledge Base
+- Sistema di domande senza risposta per migliorare la knowledge base
+- Possibilità di rispondere alle domande e convertirle in knowledge rules
+- Eliminazione di domande non pertinenti
+
+## Struttura del Progetto
 
 ### Controller
 - **UsersController**: Gestisce le configurazioni utente complete (GET/PUT)
-- **KnowledgeRulesController**: Gestisce la knowledge base (POST, GET, PUT, DELETE, upload PDF)
-- **ToneRulesController**: Gestisce le tone rules (POST, GET, DELETE)
-- **UnansweredQuestionsController**: Gestisce le domande non risposte (GET, POST, DELETE)
-- **FilesController**: Endpoint legacy per l'upload della configurazione utente
+- **UnansweredQuestionsController**: Gestisce le domande non risposte (GET, POST answer, DELETE)
+- **FilesController**: Gestisce l'upload di file per configurazione
 
 ### Servizi
-- **SqliteDataService (IDataService)**: Gestisce la persistenza dei dati con database SQLite e sincronizzazione S3
-- **UserConfigService (IUserConfigService)**: Parsing e serializzazione della configurazione utente
-- **S3StorageService (IS3StorageService)**: Gestione storage su AWS S3
-- **PineconeService (IPineconeService)**: Gestione embeddings su Pinecone
+- **SqliteDataService**: Gestisce la persistenza dei dati con database SQLite
+- **UserConfigService**: Parsing e serializzazione della configurazione utente
+- **S3StorageService**: Gestione storage su AWS S3
+- **PineconeService**: Gestione embeddings su Pinecone
 - **CookieJwtValidationMiddleware**: Middleware custom per validazione JWT
 
 ### Modelli Dati
 - **UserConfiguration**: Configurazione completa dell'utente
-- **KnowledgeRule**: Regola di conoscenza (testo o file)
+- **KnowledgeRule**: Regola di conoscenza
 - **ToneRule**: Regola di tono/comportamento
-- **UnansweredQuestion**: Domanda non risposta (senza priority/email)
+- **UnansweredQuestion**: Domanda non risposta
+- **File**: File caricato dall'utente
 
-## Principali Migliorie e Best Practice
+## Formati di File Supportati
 
-### Architettura REST
-- **Endpoint RESTful**: Implementazione di endpoint REST standard per tutte le entità
-- **Validazione Input**: Validazione completa dei dati in ingresso con ModelState
-- **Gestione Errori**: Gestione standardizzata degli errori con codici HTTP appropriati
-- **Autorizzazione**: Controllo accessi basato su JWT per ogni endpoint
+L'applicazione supporta l'estrazione automatica del testo dai seguenti formati:
 
-### Separazione delle Responsabilità
-- **Controller**: Solo orchestrazione e controllo accessi
-- **Servizi**: Logica di business e accesso ai dati
-- **Modelli**: Strutture dati tipizzate e validazione
+- **PDF (.pdf)**: Estrazione testo tramite PdfPig
+- **Word (.docx)**: Estrazione testo tramite DocX
+- **Testo semplice (.txt)**: Lettura diretta
+- **Altri formati**: Fallback a lettura come testo
 
-### Sicurezza
-- **Autenticazione JWT**: Tutti gli endpoint richiedono autenticazione
-- **Autorizzazione**: Gli utenti possono accedere solo ai propri dati
-- **Validazione Files**: Controllo tipo e dimensione file in upload
+## Principali Migliorie del Refactor
 
-## Modifiche Rispetto alla Versione Precedente
+### Rimozione Codice Inutile
+- Eliminati controller non utilizzati (KnowledgeRulesController, ToneRulesController)
+- Rimossi endpoint non utilizzati dal frontend
+- Semplificato SqliteDataService rimuovendo metodi non necessari
+- Eliminati modelli di request/response non utilizzati
 
-### Rimozioni
-- **Fallback Email**: Eliminato completamente dalla configurazione utente
-- **Multilingua**: Rimosso supporto multilingua, tutto in inglese
-- **Priority/Email**: Rimossi campi priority e userEmail dalle domande non risposte
+### Ottimizzazione Performance
+- Rimossa logica di sincronizzazione S3 non necessaria
+- Semplificata gestione delle transazioni database
+- Ridotto logging eccessivo
+- Eliminati metodi di parsing file non utilizzati
 
-### Aggiunte
-- **Nuovi Controller**: Implementati controller dedicati per ogni entità
-- **Gestione Domande**: Sistema completo per gestire domande non risposte
-- **Editing Inline**: Possibilità di modificare knowledge rules esistenti
-- **Upload PDF**: Endpoint dedicato per upload e parsing automatico PDF
-- **Paginazione**: Sistema di paginazione per knowledge rules (5 elementi per pagina)
+### Miglioramento Manutenibilità
+- Codice più pulito e focalizzato
+- Separazione chiara delle responsabilità
+- Documentazione aggiornata e accurata
+- Struttura modulare semplificata
 
-## Dipendenze
-- .NET 9.0
-- AWS SDK S3
-- Pinecone API (via HttpClient)
-- Microsoft.AspNetCore.Authentication.JwtBearer
-- Entity Framework Core SQLite
-- UglyToad.PdfPig (per PDF)
-- Xceed.Words.NET (per DOCX)
+### Aggiornamento a .NET 8.0
+- Migrazione da .NET 9.0 a .NET 8.0 (LTS)
+- Aggiornamento di tutte le dipendenze per compatibilità
+- Sostituzione di Microsoft.AspNetCore.OpenApi con Swashbuckle.AspNetCore
+- Miglioramento della stabilità e supporto a lungo termine
+
+## Deployment in Produzione
+
+### 🚀 Opzioni di Deployment
+
+#### 1. **Deployment Diretto su VM Linux**
+```bash
+# Clona il repository sulla VM
+git clone <repository-url>
+cd RAG
+
+# Rendi eseguibile lo script di deployment
+chmod +x deploy-production.sh
+
+# Configura le variabili d'ambiente (OPZIONALE - sovrascrivono appsettings.Production.json)
+export AWS_ACCESS_KEY_ID="your-aws-key"
+export AWS_SECRET_ACCESS_KEY="your-aws-secret"
+export AWS_BUCKET_NAME="your-bucket-name"
+export JWT_KEY="your-jwt-key"
+export JWT_ISSUER="your-issuer"
+export JWT_AUDIENCE="your-audience"
+export PINECONE_API_KEY="your-pinecone-key"
+export PINECONE_INDEX_HOST="your-pinecone-host"
+
+# Esegui il deployment
+./deploy-production.sh
+```
+
+#### 2. **Deployment su VM Windows**
+```powershell
+# Apri PowerShell come amministratore
+# Naviga nella directory del progetto
+cd C:\path\to\RAG
+
+# Configura le variabili d'ambiente (OPZIONALE - sovrascrivono appsettings.Production.json)
+$env:AWS_ACCESS_KEY_ID="your-aws-key"
+$env:AWS_SECRET_ACCESS_KEY="your-aws-secret"
+$env:AWS_BUCKET_NAME="your-bucket-name"
+$env:JWT_KEY="your-jwt-key"
+$env:JWT_ISSUER="your-issuer"
+$env:JWT_AUDIENCE="your-audience"
+$env:PINECONE_API_KEY="your-pinecone-key"
+$env:PINECONE_INDEX_HOST="your-pinecone-host"
+
+# Esegui lo script di deployment
+.\deploy-production.ps1
+```
+
+#### 3. **Deployment con Docker**
+```bash
+# Build dell'immagine
+docker build -t rag-api .
+
+# Esegui il container
+docker run -d \
+  --name rag-api \
+  -p 5000:5000 \
+  -e AWS_ACCESS_KEY_ID="your-aws-key" \
+  -e AWS_SECRET_ACCESS_KEY="your-aws-secret" \
+  -e AWS_BUCKET_NAME="your-bucket-name" \
+  -e JWT_KEY="your-jwt-key" \
+  -e JWT_ISSUER="your-issuer" \
+  -e JWT_AUDIENCE="your-audience" \
+  -e PINECONE_API_KEY="your-pinecone-key" \
+  -e PINECONE_INDEX_HOST="your-pinecone-host" \
+  -v rag-database:/app/rag_database.db \
+  rag-api
+```
+
+#### 4. **Deployment con Docker Compose**
+```bash
+# Crea file .env con le variabili d'ambiente
+cat > .env << EOF
+AWS_ACCESS_KEY_ID=your-aws-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret
+AWS_BUCKET_NAME=your-bucket-name
+JWT_KEY=your-jwt-key
+JWT_ISSUER=your-issuer
+JWT_AUDIENCE=your-audience
+PINECONE_API_KEY=your-pinecone-key
+PINECONE_INDEX_HOST=your-pinecone-host
+EOF
+
+# Avvia i servizi
+docker-compose up -d
+```
+
+### 🔧 Configurazione Produzione
+
+#### 📋 Gerarchia di Configurazione
+
+L'applicazione segue questa gerarchia di configurazione (dal più basso al più alto):
+
+1. **`appsettings.json`** - Configurazione di base
+2. **`appsettings.Production.json`** - Configurazione produzione (sovrascrive appsettings.json)
+3. **Variabili d'ambiente** - Sovrascrivono i file di configurazione
+
+#### ⚙️ Configurazione in appsettings.Production.json
+
+Il file `appsettings.Production.json` contiene già valori di default per la produzione:
+
+```json
+{
+  "AWS": {
+    "BucketName": "your-production-bucket-name"
+  },
+  "Jwt": {
+    "Key": "your-production-jwt-key",
+    "Issuer": "your-production-issuer", 
+    "Audience": "your-production-audience"
+  },
+  "Pinecone": {
+    "ApiKey": "your-production-pinecone-api-key",
+    "IndexHost": "your-production-pinecone-index-host"
+  }
+}
+```
+
+**Per usare solo appsettings.Production.json:**
+1. Modifica direttamente i valori nel file
+2. Non impostare variabili d'ambiente
+3. L'applicazione userà i valori del file
+
+**Per usare variabili d'ambiente (RACCOMANDATO per sicurezza):**
+1. Lascia i valori placeholder in appsettings.Production.json
+2. Imposta le variabili d'ambiente con i valori reali
+3. Le variabili d'ambiente sovrascriveranno i valori del file
+
+#### 🔐 Variabili d'Ambiente (Raccomandato)
+
+```bash
+# AWS Configuration
+AWS_ACCESS_KEY_ID=your-aws-access-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+AWS_REGION=us-east-1
+AWS_BUCKET_NAME=your-s3-bucket-name
+
+# JWT Configuration
+JWT_KEY=your-secure-jwt-key
+JWT_ISSUER=your-jwt-issuer
+JWT_AUDIENCE=your-jwt-audience
+
+# Pinecone Configuration
+PINECONE_API_KEY=your-pinecone-api-key
+PINECONE_INDEX_HOST=your-pinecone-index-host
+```
+
+**Vantaggi delle variabili d'ambiente:**
+- ✅ Non vengono committate nel repository
+- ✅ Più sicure per gestire secrets
+- ✅ Facili da cambiare senza modificare file
+- ✅ Standard per deployment containerizzati
+
+#### 🔧 Configurazione Firewall
+```bash
+# Linux (UFW)
+sudo ufw allow 5000/tcp
+
+# Windows (PowerShell)
+New-NetFirewallRule -DisplayName "RAG API" -Direction Inbound -Protocol TCP -LocalPort 5000 -Action Allow
+```
+
+### 📊 Monitoraggio e Gestione
+
+#### Linux (systemd)
+```bash
+# Verifica stato
+sudo systemctl status rag-api.service
+
+# Logs in tempo reale
+sudo journalctl -u rag-api.service -f
+
+# Riavvio servizio
+sudo systemctl restart rag-api.service
+
+# Stop servizio
+sudo systemctl stop rag-api.service
+```
+
+#### Windows (Services)
+```powershell
+# Verifica stato
+Get-Service "RAG-API"
+
+# Logs
+Get-EventLog -LogName Application -Source "RAG-API"
+
+# Riavvio servizio
+Restart-Service "RAG-API"
+
+# Stop servizio
+Stop-Service "RAG-API"
+```
+
+#### Docker
+```bash
+# Verifica stato container
+docker ps
+
+# Logs container
+docker logs rag-api
+
+# Riavvio container
+docker restart rag-api
+
+# Stop container
+docker stop rag-api
+```
+
+### 🌐 Accesso all'Applicazione
+
+Dopo il deployment, l'applicazione sarà disponibile su:
+- **URL**: http://your-vm-ip:5000
+- **Health Check**: http://your-vm-ip:5000/health
+- **API Endpoints**: http://your-vm-ip:5000/api/*
+
+### 🔒 Sicurezza in Produzione
+
+1. **Firewall**: Configura il firewall per permettere solo la porta 5000
+2. **HTTPS**: Usa un reverse proxy (nginx/Apache) con SSL
+3. **Secrets**: Usa variabili d'ambiente per i secrets (non committare nel repository)
+4. **Updates**: Mantieni aggiornati .NET e le dipendenze
+5. **Monitoring**: Configura logging e monitoring
 
 ## Configurazione
 
-### appsettings.json
+### appsettings.json (Sviluppo)
 ```json
 {
   "ConnectionStrings": {
@@ -116,49 +338,67 @@ L'applicazione supporta l'estrazione automatica del testo dai seguenti formati d
     "Key": "your-jwt-key",
     "Issuer": "your-issuer",
     "Audience": "your-audience"
+  },
+  "Pinecone": {
+    "ApiKey": "your-pinecone-api-key",
+    "IndexHost": "your-pinecone-index-host"
   }
 }
 ```
 
-### Variabili d'Ambiente
+### appsettings.Production.json (Produzione)
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=rag_database.db"
+  },
+  "AWS": {
+    "BucketName": "your-production-bucket-name"
+  },
+  "Jwt": {
+    "Key": "your-production-jwt-key",
+    "Issuer": "your-production-issuer",
+    "Audience": "your-production-audience"
+  },
+  "Pinecone": {
+    "ApiKey": "your-production-pinecone-api-key",
+    "IndexHost": "your-production-pinecone-index-host"
+  },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://0.0.0.0:5000"
+      }
+    }
+  }
+}
+```
+
+### Variabili d'Ambiente (Sovrascrivono appsettings)
 - **AWS_ACCESS_KEY_ID**: Chiave di accesso AWS
 - **AWS_SECRET_ACCESS_KEY**: Chiave segreta AWS
 - **AWS_REGION**: Regione AWS (es. us-east-1)
+- **AWS_BUCKET_NAME**: Nome bucket S3
+- **JWT_KEY**: Chiave JWT per firma token
+- **JWT_ISSUER**: Issuer JWT
+- **JWT_AUDIENCE**: Audience JWT
+- **PINECONE_API_KEY**: Chiave API Pinecone
+- **PINECONE_INDEX_HOST**: Host indice Pinecone
 
-## Esempio di Utilizzo
+## Esempi di Utilizzo
 
 ### Configurazione Utente
 ```bash
 # Recupera configurazione
 GET /api/users/{userId}/configuration
-```
 
-**Risposta:**
-```json
-{
-  "knowledgeRules": [
-    {
-      "id": "guid",
-      "content": "Contenuto della regola"
-    }
-  ],
-  "toneRules": [
-    {
-      "id": "guid",
-      "content": "Regola di comportamento"
-    }
-  ],
-  "files": [
-    {
-      "id": "guid",
-      "name": "documento.pdf",
-      "size": 1024000
-    }
-  ]
-}
-```
-
-```bash
 # Aggiorna configurazione
 PUT /api/users/{userId}/configuration
 {
@@ -170,29 +410,23 @@ PUT /api/users/{userId}/configuration
   ],
   "toneRules": [
     {
-      "id": "tr-1",
+      "id": "tr-1", 
       "content": "Regola di comportamento"
+    }
+  ],
+  "files": [
+    {
+      "id": "f-1",
+      "name": "documento.pdf",
+      "contentType": "application/pdf",
+      "size": 1024000,
+      "content": "base64-encoded-content"
     }
   ]
 }
 ```
 
-### Knowledge Base
-```bash
-# Aggiungi testo
-POST /api/users/{userId}/knowledge-rules
-{
-  "content": "Nuovo contenuto testuale"
-}
-
-# Modifica item esistente
-PUT /api/users/{userId}/knowledge-rules/{ruleId}
-{
-  "content": "Contenuto modificato"
-}
-```
-
-### Domande Non Risposte
+### Gestione Domande Non Risposte
 ```bash
 # Lista domande
 GET /api/unanswered-questions
@@ -203,30 +437,44 @@ POST /api/unanswered-questions/{questionId}/answer
   "answer": "Risposta alla domanda",
   "userId": "user-123"
 }
+
+# Elimina domanda
+DELETE /api/unanswered-questions/{questionId}
 ```
 
-## Estendibilità
-- **Nuovi Tipi File**: Aggiungere parsing per nuovi formati in KnowledgeRulesController
-- **Database**: Implementata persistenza SQLite con sincronizzazione automatica S3
-- **Caching**: Aggiungere layer di caching per performance
-- **Notifiche**: Implementare sistema di notifiche per nuove domande
-- **Backup**: Implementare backup automatico delle configurazioni
+### Upload File
+```bash
+# Upload configurazione
+POST /api/files/upload
+Content-Type: multipart/form-data
+```
+
+## Dipendenze
+- .NET 8.0 (LTS)
+- AWS SDK S3 (3.7.306)
+- Pinecone API (via HttpClient)
+- Microsoft.AspNetCore.Authentication.JwtBearer (8.0.0)
+- Entity Framework Core SQLite (8.0.0)
+- Swashbuckle.AspNetCore (6.5.0)
+- UglyToad.PdfPig (per PDF)
+- Xceed.Words.NET (per DOCX)
 
 ## Sicurezza
-- **Validazione JWT**: Tramite middleware custom per autenticazione basata su cookie
-- **Controllo Accessi**: Ogni utente può accedere solo ai propri dati
+- **Autenticazione JWT**: Validazione tramite middleware custom
+- **Autorizzazione**: Controllo accessi per utente
 - **Validazione Input**: Controllo completo dei dati in ingresso
-- **Gestione File**: Controllo tipo e dimensione file in upload
-- **Configurazione Sicura**: Chiavi e configurazioni tramite appsettings.json e variabili d'ambiente
+- **Gestione File**: Controllo tipo e dimensione file
+- **Configurazione Sicura**: Chiavi tramite appsettings.json e variabili d'ambiente
 
 ## Testing
 Per testare l'applicazione:
 1. Configurare le variabili d'ambiente AWS
-2. Aggiornare appsettings.json con le configurazioni JWT e connection string
-3. Avviare l'applicazione con `dotnet run` (il database SQLite verrà creato automaticamente)
-4. Utilizzare i dati di esempio caricati automaticamente (userId: "sample-user")
+2. Aggiornare appsettings.json con le configurazioni JWT e Pinecone
+3. Avviare l'applicazione con `dotnet run`
+4. Il database SQLite verrà creato automaticamente
+5. Swagger UI disponibile su `/swagger` in ambiente di sviluppo
 
 ## Note Finali
-L'applicazione è ora completamente allineata con i cambiamenti del frontend e supporta tutte le funzionalità richieste. La struttura modulare e l'uso di interfacce facilitano testing e manutenzione futura. La persistenza è implementata con SQLite per garantire affidabilità e performance, con sincronizzazione automatica su S3 per backup e condivisione.
+L'applicazione è ora completamente ottimizzata e allineata con i requisiti del frontend. Il refactor ha eliminato tutto il codice inutile mantenendo solo le funzionalità essenziali, migliorando significativamente performance e manutenibilità. La migrazione a .NET 8.0 garantisce stabilità e supporto a lungo termine. Il deployment in produzione è stato configurato per essere semplice e sicuro su VM.
 
 Per domande o contributi, modificare questo file o aprire una issue. 

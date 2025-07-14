@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using RAG.Models;
+using RAG.Entities;
+using FileEntity = RAG.Entities.File;
 
 namespace RAG.Data
 {
@@ -16,7 +17,7 @@ namespace RAG.Data
         public DbSet<KnowledgeRule> KnowledgeRules { get; set; }
         public DbSet<ToneRule> ToneRules { get; set; }
         public DbSet<UnansweredQuestion> UnansweredQuestions { get; set; }
-        public DbSet<RAG.Models.File> Files { get; set; }
+        public DbSet<FileEntity> Files { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -73,7 +74,7 @@ namespace RAG.Data
             });
 
             // Configurazione File
-            modelBuilder.Entity<RAG.Models.File>(entity =>
+            modelBuilder.Entity<FileEntity>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).IsRequired();
@@ -102,7 +103,7 @@ namespace RAG.Data
                 .HasIndex(e => e.CreatedAt)
                 .HasDatabaseName("IX_UnansweredQuestions_CreatedAt");
 
-            modelBuilder.Entity<RAG.Models.File>()
+            modelBuilder.Entity<FileEntity>()
                 .HasIndex("UserId", "CreatedAt")
                 .HasDatabaseName("IX_Files_UserId_CreatedAt");
         }
