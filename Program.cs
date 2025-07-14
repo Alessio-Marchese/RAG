@@ -4,12 +4,25 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using RAG.Data;
 using RAG.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configurazione Kestrel per produzione
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.ListenAnyIP(5000, listenOptions =>
+        {
+            listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+        });
+    });
+}
 
 // Configura i parametri di validazione JWT per il middleware custom
 var jwtSection = builder.Configuration.GetSection("Jwt");
