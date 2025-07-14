@@ -9,6 +9,7 @@ using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using RAG.Data;
 using RAG.Services;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,9 @@ if (!builder.Environment.IsDevelopment())
             listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
         });
     });
+    
+    // Forza l'uso della porta 5001 per evitare conflitti
+    builder.WebHost.UseUrls("http://0.0.0.0:5001");
 }
 
 // Configura i parametri di validazione JWT per il middleware custom
