@@ -60,26 +60,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configurazione CORS per ambiente di produzione
+// Abilita CORS per tutte le origini (temporaneo, da restringere in produzione)
 builder.Services.AddCors(options =>
 {
-    if (builder.Environment.IsDevelopment())
-    {
-        // CORS per sviluppo locale
-        options.AddPolicy("AllowLocalhost8081",
-            policy => policy.WithOrigins("http://localhost:8081")
-                            .AllowAnyHeader()
-                            .AllowAnyMethod()
-                            .AllowCredentials());
-    }
-    else
-    {
-        // CORS per produzione - permette accesso da qualsiasi origine
-        // In produzione, dovresti specificare i domini esatti del frontend
-        options.AddPolicy("AllowProduction",
-            policy => policy.AllowAnyOrigin()
-                            .AllowAnyHeader()
-                            .AllowAnyMethod());
-    }
+    options.AddPolicy("AllowAll",
+        policy => policy.AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod());
 });
 
 // Configurazione Kestrel per produzione
@@ -113,7 +100,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
     app.UseHttpsRedirection();
-    app.UseCors("AllowLocalhost8081");
+    // Applica la policy CORS globale (temporaneo, da restringere in produzione)
+    app.UseCors("AllowAll");
 }
 else
 {
