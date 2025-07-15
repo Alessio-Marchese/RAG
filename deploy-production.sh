@@ -1,45 +1,52 @@
 #!/bin/bash
 
-# Script di deployment per RAG API su VM Linux
+# Script di deployment idempotente per RAG API su VM Linux (Ubuntu)
 # Assicurati di avere .NET 8.0 installato sulla VM
 
-echo "🚀 Avvio deployment RAG API in produzione..."
+set -e
 
-# Verifica che .NET 8.0 sia installato
-if ! command -v dotnet &> /dev/null; then
-    echo "❌ .NET non è installato. Installa .NET 8.0 SDK prima di continuare."
-    exit 1
+SERVICE_NAME="rag-api"
+APP_DIR="/opt/rag-api"
+PUBLISH_DIR="$APP_DIR/publish"
+
+# 1. Ferma e disabilita il servizio se esiste
+if systemctl list-units --full -all | grep -Fq "$SERVICE_NAME.service"; then
+    echo "🛑 Fermata servizio esistente..."
+    sudo systemctl stop $SERVICE_NAME.service || true
+    sudo systemctl disable $SERVICE_NAME.service || true
 fi
 
-# Verifica versione .NET
-DOTNET_VERSION=$(dotnet --version)
-echo "✅ .NET versione: $DOTNET_VERSION"
+# 2. Uccidi eventuali processi .NET residui relativi a RAG
+if pgrep -f "$PUBLISH_DIR/RAG.dll" > /dev/null; then
+    echo "🔪 Kill processi .NET residui..."
+    sudo pkill -f "$PUBLISH_DIR/RAG.dll" || true
+fi
 
-# Crea directory per l'applicazione se non esiste
-APP_DIR="/opt/rag-api"
+# 3. Elimina la directory di deploy
+if [ -d "$APP_DIR" ]; then
+    echo "🧹 Rimozione directory di deploy esistente..."
+    sudo rm -rf "$APP_DIR"
+fi
+
+# 4. Ricrea la directory e copia i file
 echo "📁 Creazione directory: $APP_DIR"
 sudo mkdir -p $APP_DIR
 sudo chown $USER:$USER $APP_DIR
-
-# Copia i file dell'applicazione
-echo "📋 Copia file applicazione..."
 cp -r . $APP_DIR/
 cd $APP_DIR
 
-# Pulisci build precedenti
+# 5. Build e publish puliti
 echo "🧹 Pulizia build precedenti..."
 dotnet clean
 rm -rf bin/ obj/
 
-# Restore dipendenze
 echo "📦 Restore dipendenze..."
 dotnet restore
 
-# Build per produzione
 echo "🔨 Build per produzione..."
 dotnet publish -c Release -o ./publish
 
-# Crea file di configurazione produzione (se non esiste)
+# 6. Crea file di configurazione produzione (se non esiste)
 if [ ! -f "appsettings.Production.json" ]; then
     echo "⚙️ Creazione appsettings.Production.json..."
     cat > appsettings.Production.json << EOF
@@ -69,7 +76,7 @@ if [ ! -f "appsettings.Production.json" ]; then
   "Kestrel": {
     "Endpoints": {
       "Http": {
-        "Url": "http://0.0.0.0:5000"
+        "Url": "http://0.0.0.0:5001"
       }
     }
   }
@@ -84,9 +91,8 @@ echo "   - Se hai impostato variabili d'ambiente, verranno usate"
 echo "   - Altrimenti, modifica appsettings.Production.json con i valori reali"
 echo "   - Le variabili d'ambiente sovrascrivono appsettings.Production.json"
 
-# Crea service file per systemd
-echo "🔧 Configurazione systemd service..."
-sudo tee /etc/systemd/system/rag-api.service > /dev/null << EOF
+# 7. (Ri)crea il service file per systemd
+sudo tee /etc/systemd/system/$SERVICE_NAME.service > /dev/null << EOF
 [Unit]
 Description=RAG API
 After=network.target
@@ -94,36 +100,31 @@ After=network.target
 [Service]
 Type=exec
 User=$USER
-WorkingDirectory=$APP_DIR/publish
-ExecStart=/usr/bin/dotnet $APP_DIR/publish/RAG.dll
+WorkingDirectory=$PUBLISH_DIR
+ExecStart=/usr/bin/dotnet $PUBLISH_DIR/RAG.dll
 Restart=always
 RestartSec=10
 Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5001
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Ricarica systemd e abilita il service
-echo "🔄 Configurazione systemd..."
+# 8. Ricarica systemd, abilita e avvia il servizio
 sudo systemctl daemon-reload
-sudo systemctl enable rag-api.service
+sudo systemctl enable $SERVICE_NAME.service
+sudo systemctl start $SERVICE_NAME.service
 
-# Avvia il service
-echo "▶️ Avvio servizio..."
-sudo systemctl start rag-api.service
-
-# Verifica stato
-echo "📊 Verifica stato servizio..."
-sudo systemctl status rag-api.service --no-pager
+# 9. Verifica stato
+sudo systemctl status $SERVICE_NAME.service --no-pager
 
 echo "✅ Deployment completato!"
-echo "🌐 L'applicazione è disponibile su: http://0.0.0.0:5000"
-echo "📝 Logs: sudo journalctl -u rag-api.service -f"
-echo "🛑 Stop: sudo systemctl stop rag-api.service"
-echo "▶️ Start: sudo systemctl start rag-api.service"
-echo "🔄 Restart: sudo systemctl restart rag-api.service"
+echo "🌐 L'applicazione è disponibile su: http://0.0.0.0:5001"
+echo "📝 Logs: sudo journalctl -u $SERVICE_NAME.service -f"
+echo "🛑 Stop: sudo systemctl stop $SERVICE_NAME.service"
+echo "▶️ Start: sudo systemctl start $SERVICE_NAME.service"
+echo "🔄 Restart: sudo systemctl restart $SERVICE_NAME.service"
 echo ""
 echo "🔧 Per configurare i secrets:"
 echo "   1. Modifica appsettings.Production.json direttamente, OPPURE"
