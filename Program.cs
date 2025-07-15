@@ -18,14 +18,14 @@ if (!builder.Environment.IsDevelopment())
 {
     builder.WebHost.ConfigureKestrel(options =>
     {
-        options.ListenAnyIP(5001, listenOptions =>
+        options.ListenAnyIP(5000, listenOptions =>
         {
             listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
         });
     });
     
-    // Forza l'uso della porta 5001 per evitare conflitti
-    builder.WebHost.UseUrls("http://0.0.0.0:5001");
+    // Forza l'uso della porta 5000 per evitare conflitti
+    builder.WebHost.UseUrls("http://0.0.0.0:5000");
 }
 
 // Configura i parametri di validazione JWT per il middleware custom

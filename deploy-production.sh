@@ -76,7 +76,7 @@ if [ ! -f "appsettings.Production.json" ]; then
   "Kestrel": {
     "Endpoints": {
       "Http": {
-        "Url": "http://0.0.0.0:5001"
+        "Url": "http://0.0.0.0:5000"
       }
     }
   }
@@ -105,7 +105,7 @@ ExecStart=/usr/bin/dotnet $PUBLISH_DIR/RAG.dll
 Restart=always
 RestartSec=10
 Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://0.0.0.0:5001
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
 
 [Install]
 WantedBy=multi-user.target
@@ -120,7 +120,7 @@ sudo systemctl start $SERVICE_NAME.service
 sudo systemctl status $SERVICE_NAME.service --no-pager
 
 echo "✅ Deployment completato!"
-echo "🌐 L'applicazione è disponibile su: http://0.0.0.0:5001"
+echo "🌐 L'applicazione è disponibile su: http://0.0.0.0:5000"
 echo "📝 Logs: sudo journalctl -u $SERVICE_NAME.service -f"
 echo "🛑 Stop: sudo systemctl stop $SERVICE_NAME.service"
 echo "▶️ Start: sudo systemctl start $SERVICE_NAME.service"

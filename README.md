@@ -126,7 +126,7 @@ export PINECONE_INDEX_HOST="your-pinecone-host"
 # Esegui il deployment
 ./deploy-production.sh
 
-# L'applicazione sarà disponibile su http://<IP-VM>:5001
+# L'applicazione sarà disponibile su http://<IP-VM>:5000
 ```
 
 #### 2. **Deployment su VM Windows**
@@ -157,7 +157,7 @@ docker build -t rag-api .
 # Esegui il container
 docker run -d \
   --name rag-api \
-  -p 5001:5001 \
+  -p 5000:5000 \
   -e AWS_ACCESS_KEY_ID="your-aws-key" \
   -e AWS_SECRET_ACCESS_KEY="your-aws-secret" \
   -e AWS_BUCKET_NAME="your-bucket-name" \
@@ -186,7 +186,7 @@ EOF
 
 # Avvia i servizi
 docker-compose up -d
-# L'applicazione sarà disponibile su http://<IP-VM>:5001
+# L'applicazione sarà disponibile su http://<IP-VM>:5000
 ```
 
 ### 🔧 Configurazione Produzione
