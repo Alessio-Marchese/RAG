@@ -60,13 +60,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configurazione CORS per ambiente di produzione
-// Abilita CORS per tutte le origini (temporaneo, da restringere in produzione)
+// Abilita CORS per l'origine specifica del frontend
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        policy => policy.AllowAnyOrigin()
+    options.AddPolicy("AllowFrontend",
+        policy => policy.WithOrigins("https://assistsman.com")
                         .AllowAnyHeader()
-                        .AllowAnyMethod());
+                        .AllowAnyMethod()
+                        .AllowCredentials());
 });
 
 // Configurazione Kestrel per produzione
@@ -95,7 +96,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Applica la policy CORS globale (sempre, anche in produzione)
-app.UseCors("AllowAll");
+app.UseCors("AllowFrontend");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
