@@ -94,20 +94,17 @@ using (var scope = app.Services.CreateScope())
     context.Database.EnsureCreated();
 }
 
+// Applica la policy CORS globale (sempre, anche in produzione)
+app.UseCors("AllowAll");
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
     app.UseHttpsRedirection();
-    // Applica la policy CORS globale (temporaneo, da restringere in produzione)
-    app.UseCors("AllowAll");
-}
-else
-{
-    // In produzione, non usiamo HTTPS redirection e Swagger
-    // L'applicazione sarà dietro un reverse proxy (nginx, Apache, etc.)
-    app.UseCors("AllowProduction");
+    // Applica la policy CORS globale (deve essere prima di qualsiasi middleware custom)
+    // app.UseCors("AllowAll"); // This line is now redundant as it's moved outside
 }
 
 // Middleware custom per validazione JWT da cookie
