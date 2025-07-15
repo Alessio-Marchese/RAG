@@ -105,7 +105,6 @@ ExecStart=/usr/bin/dotnet $PUBLISH_DIR/RAG.dll
 Restart=always
 RestartSec=10
 Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
 
 [Install]
 WantedBy=multi-user.target

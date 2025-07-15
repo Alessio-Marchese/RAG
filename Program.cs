@@ -13,20 +13,7 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configurazione Kestrel per produzione
-if (!builder.Environment.IsDevelopment())
-{
-    builder.WebHost.ConfigureKestrel(options =>
-    {
-        options.ListenAnyIP(5000, listenOptions =>
-        {
-            listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-        });
-    });
-    
-    // Forza l'uso della porta 5000 per evitare conflitti
-    builder.WebHost.UseUrls("http://0.0.0.0:5000");
-}
+// In produzione, la porta viene gestita da ASPNETCORE_URLS o appsettings.Production.json
 
 // Configura i parametri di validazione JWT per il middleware custom
 var jwtSection = builder.Configuration.GetSection("Jwt");
@@ -94,6 +81,20 @@ builder.Services.AddCors(options =>
                             .AllowAnyMethod());
     }
 });
+
+// Configurazione Kestrel per produzione
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.ListenAnyIP(5000, listenOptions =>
+        {
+            listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+        });
+    });
+    // Forza l'uso della porta 5000 per evitare conflitti
+    builder.WebHost.UseUrls("http://0.0.0.0:5000");
+}
 
 builder.Services.AddControllers();
 
