@@ -59,16 +59,31 @@ builder.Services.AddSingleton<PineconeService>(sp =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configurazione CORS per ambiente di produzione
-// Abilita CORS per l'origine specifica del frontend
-builder.Services.AddCors(options =>
+// Configurazione CORS dinamica in base all'ambiente
+if (builder.Environment.IsDevelopment())
 {
-    options.AddPolicy("AllowFrontend",
-        policy => policy.WithOrigins("https://assistsman.com")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials());
-});
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowFrontend",
+            policy => policy.WithOrigins("http://localhost:8081")
+                            .AllowAnyHeader()
+                            .AllowAnyMethod()
+                            .AllowCredentials());
+    });
+}
+else // Production o altri ambienti
+{
+    // Recupera l'host corrente da configurazione o variabile d'ambiente
+    var allowedOrigin = builder.Configuration["AllowedCorsOrigin"] ?? "https://api.assistsman.com";
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowFrontend",
+            policy => policy.WithOrigins(allowedOrigin)
+                            .AllowAnyHeader()
+                            .AllowAnyMethod()
+                            .AllowCredentials());
+    });
+}
 
 // Configurazione Kestrel per produzione
 if (!builder.Environment.IsDevelopment())
