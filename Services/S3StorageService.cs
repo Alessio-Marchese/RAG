@@ -1,9 +1,5 @@
 using Amazon.S3;
 using Amazon.S3.Transfer;
-using System.Text.Json;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Http;
-using System.Threading.Tasks;
 
 namespace RAG.Services
 {

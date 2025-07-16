@@ -104,6 +104,8 @@ L'applicazione supporta l'estrazione automatica del testo dai seguenti formati:
 
 ### 🚀 Opzioni di Deployment
 
+> **Nota**: Il progetto è stato configurato per deployment diretto su VM Linux senza Docker per semplificare la gestione e ridurre la complessità. Tutte le configurazioni Docker sono state rimosse.
+
 #### 1. **Deployment Diretto su VM Linux**
 ```bash
 # Clona il repository sulla VM
@@ -129,65 +131,9 @@ export PINECONE_INDEX_HOST="your-pinecone-host"
 # L'applicazione sarà disponibile su http://<IP-VM>:5000
 ```
 
-#### 2. **Deployment su VM Windows**
-```powershell
-# Apri PowerShell come amministratore
-# Naviga nella directory del progetto
-cd C:\path\to\RAG
 
-# Configura le variabili d'ambiente (OPZIONALE - sovrascrivono appsettings.Production.json)
-$env:AWS_ACCESS_KEY_ID="your-aws-key"
-$env:AWS_SECRET_ACCESS_KEY="your-aws-secret"
-$env:AWS_BUCKET_NAME="your-bucket-name"
-$env:JWT_KEY="your-jwt-key"
-$env:JWT_ISSUER="your-issuer"
-$env:JWT_AUDIENCE="your-audience"
-$env:PINECONE_API_KEY="your-pinecone-key"
-$env:PINECONE_INDEX_HOST="your-pinecone-host"
 
-# Esegui lo script di deployment
-.\deploy-production.ps1
-```
 
-#### 3. **Deployment con Docker**
-```bash
-# Build dell'immagine
-docker build -t rag-api .
-
-# Esegui il container
-docker run -d \
-  --name rag-api \
-  -p 5000:5000 \
-  -e AWS_ACCESS_KEY_ID="your-aws-key" \
-  -e AWS_SECRET_ACCESS_KEY="your-aws-secret" \
-  -e AWS_BUCKET_NAME="your-bucket-name" \
-  -e JWT_KEY="your-jwt-key" \
-  -e JWT_ISSUER="your-issuer" \
-  -e JWT_AUDIENCE="your-audience" \
-  -e PINECONE_API_KEY="your-pinecone-key" \
-  -e PINECONE_INDEX_HOST="your-pinecone-host" \
-  -v rag-database:/app/rag_database.db \
-  rag-api
-```
-
-#### 4. **Deployment con Docker Compose**
-```bash
-# Crea file .env con le variabili d'ambiente
-cat > .env << EOF
-AWS_ACCESS_KEY_ID=your-aws-key
-AWS_SECRET_ACCESS_KEY=your-aws-secret
-AWS_BUCKET_NAME=your-bucket-name
-JWT_KEY=your-jwt-key
-JWT_ISSUER=your-issuer
-JWT_AUDIENCE=your-audience
-PINECONE_API_KEY=your-pinecone-key
-PINECONE_INDEX_HOST=your-pinecone-host
-EOF
-
-# Avvia i servizi
-docker-compose up -d
-# L'applicazione sarà disponibile su http://<IP-VM>:5000
-```
 
 ### 🔧 Configurazione Produzione
 
@@ -255,18 +201,13 @@ PINECONE_INDEX_HOST=your-pinecone-index-host
 - ✅ Facili da cambiare senza modificare file
 - ✅ Standard per deployment containerizzati
 
-#### 🔧 Configurazione Firewall
+#### 🔧 Configurazione Firewall (Linux)
 ```bash
-# Linux (UFW)
+# Abilita porta 5000
 sudo ufw allow 5000/tcp
-
-# Windows (PowerShell)
-New-NetFirewallRule -DisplayName "RAG API" -Direction Inbound -Protocol TCP -LocalPort 5000 -Action Allow
 ```
 
-### 📊 Monitoraggio e Gestione
-
-#### Linux (systemd)
+### 📊 Monitoraggio e Gestione (Linux)
 ```bash
 # Verifica stato
 sudo systemctl status rag-api.service
@@ -281,35 +222,9 @@ sudo systemctl restart rag-api.service
 sudo systemctl stop rag-api.service
 ```
 
-#### Windows (Services)
-```powershell
-# Verifica stato
-Get-Service "RAG-API"
 
-# Logs
-Get-EventLog -LogName Application -Source "RAG-API"
 
-# Riavvio servizio
-Restart-Service "RAG-API"
 
-# Stop servizio
-Stop-Service "RAG-API"
-```
-
-#### Docker
-```bash
-# Verifica stato container
-docker ps
-
-# Logs container
-docker logs rag-api
-
-# Riavvio container
-docker restart rag-api
-
-# Stop container
-docker stop rag-api
-```
 
 ### 🌐 Accesso all'Applicazione
 
@@ -331,6 +246,13 @@ Dopo il deployment, l'applicazione sarà disponibile su:
 ### appsettings.json (Sviluppo)
 ```json
 {
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
   "ConnectionStrings": {
     "DefaultConnection": "Data Source=rag_database.db"
   },
@@ -478,6 +400,6 @@ Per testare l'applicazione:
 5. Swagger UI disponibile su `/swagger` in ambiente di sviluppo
 
 ## Note Finali
-L'applicazione è ora completamente ottimizzata e allineata con i requisiti del frontend. Il refactor ha eliminato tutto il codice inutile mantenendo solo le funzionalità essenziali, migliorando significativamente performance e manutenibilità. La migrazione a .NET 8.0 garantisce stabilità e supporto a lungo termine. Il deployment in produzione è stato configurato per essere semplice e sicuro su VM.
+L'applicazione è ora completamente ottimizzata e allineata con i requisiti del frontend. Il refactor ha eliminato tutto il codice inutile mantenendo solo le funzionalità essenziali, migliorando significativamente performance e manutenibilità. La migrazione a .NET 8.0 garantisce stabilità e supporto a lungo termine. Il deployment in produzione è stato semplificato rimuovendo Docker e configurando deployment diretto su VM Linux per ridurre la complessità e migliorare la gestione.
 
 Per domande o contributi, modificare questo file o aprire una issue. 

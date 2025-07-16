@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using RAG.Services;
 
 // Classi legacy per compatibilità con UserConfigService

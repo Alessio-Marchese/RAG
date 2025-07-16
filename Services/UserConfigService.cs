@@ -1,8 +1,4 @@
 using System.Text.Json;
-using Microsoft.AspNetCore.Http;
-using System.IO;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using System.Text;

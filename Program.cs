@@ -1,15 +1,11 @@
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using RAG.Data;
 using RAG.Services;
-using Microsoft.OpenApi.Models;
+using RAG.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,8 +32,7 @@ builder.Services.AddScoped<S3StorageService>();
 
 // Configurazione database SQLite
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? 
-                     "Data Source=rag_database.db"));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Servizi applicazione
 builder.Services.AddScoped<IUserConfigService, UserConfigService>();
