@@ -73,12 +73,10 @@ if (builder.Environment.IsDevelopment())
 }
 else // Production o altri ambienti
 {
-    // Recupera l'host corrente da configurazione o variabile d'ambiente
-    var allowedOrigin = builder.Configuration["AllowedCorsOrigin"] ?? "https://api.assistsman.com";
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowFrontend",
-            policy => policy.WithOrigins(allowedOrigin)
+            policy => policy.WithOrigins("https://assistsman.com")
                             .AllowAnyHeader()
                             .AllowAnyMethod()
                             .AllowCredentials());
