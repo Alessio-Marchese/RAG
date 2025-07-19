@@ -76,29 +76,29 @@ namespace RAG.Services
                 var ext = Path.GetExtension(fileName).ToLowerInvariant();
                 
                 if (contentType == "application/pdf" || ext == ".pdf")
-                {
+                        {
                     return ExtractTextFromPdf(stream);
-                }
+                        }
                 else if (contentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || ext == ".docx")
-                {
+                        {
                     return ExtractTextFromDocx(stream);
-                }
+                        }
                 else if (contentType == "text/plain" || ext == ".txt")
-                {
+                        {
                     using var reader = new StreamReader(stream);
                     return reader.ReadToEnd();
-                }
-                else
-                {
+                        }
+                        else
+                        {
                     using var reader = new StreamReader(stream);
                     return reader.ReadToEnd();
-                }
+                        }
             }
             catch (Exception ex)
-            {
+        {
                 return $"Error extracting text from file {fileName}: {ex.Message}";
-            }
-        }
+                    }
+                }
 #endregion
     }
 } 

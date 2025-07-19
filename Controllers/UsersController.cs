@@ -85,16 +85,6 @@ namespace RAG.Controllers
                     return Forbid();
                 }
 
-                // Check if configuration is currently processing
-                var isProcessing = await _dataService.IsUserConfigurationProcessingAsync(userId);
-                if (isProcessing)
-                {
-                    return BadRequest(new ErrorResponse 
-                    { 
-                        Message = "Cannot upload configuration while processing is in progress. Please wait for the current upload to complete." 
-                    });
-                }
-
                 if (request == null)
                 {
                     return BadRequest(new ErrorResponse { Message = "Invalid request" });
@@ -181,34 +171,6 @@ namespace RAG.Controllers
                 else
                 {
                     return StatusCode(500, new ErrorResponse { Message = "Something went wrong during the update of the configuration." });
-                }
-            });
-        }
-
-        [HttpPost("{userId}/processing-status")]
-        public Task<IActionResult> SetProcessingStatus(Guid userId, [FromBody] SetProcessingStatusRequest request)
-        {
-            return ExceptionBoundary.RunAsync(async () =>
-            {
-                if (request == null)
-                {
-                    return BadRequest(new ErrorResponse { Message = "Invalid request" });
-                }
-
-                var success = await _dataService.SetUserConfigurationProcessingStatusAsync(userId, request.IsProcessing);
-                
-                if (success)
-                {
-                    return Ok(new SuccessResponse 
-                    { 
-                        Message = request.IsProcessing 
-                            ? "Processing status set to true" 
-                            : "Processing status set to false" 
-                    });
-                }
-                else
-                {
-                    return NotFound(new ErrorResponse { Message = "User configuration not found" });
                 }
             });
         }

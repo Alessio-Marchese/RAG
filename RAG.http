@@ -48,15 +48,6 @@ Cookie: jwt=your-jwt-token-here
   ]
 }
 
-### Imposta stato di processing (usato da N8N)
-POST https://localhost:5196/api/users/{{userId}}/processing-status
-Content-Type: application/json
-Cookie: jwt=your-jwt-token-here
-
-{
-  "isProcessing": true
-}
-
 ### Upload file per configurazione (gestito tramite PUT configuration)
 ### I file vengono inviati come parte della configurazione completa
 

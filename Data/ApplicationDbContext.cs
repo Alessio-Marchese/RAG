@@ -23,7 +23,6 @@ namespace RAG.Data
             {
                 entity.HasKey(e => e.UserId);
                 entity.Property(e => e.UserId).IsRequired();
-                entity.Property(e => e.IsProcessing).IsRequired().HasDefaultValue(false);
                 
             });
 

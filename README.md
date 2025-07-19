@@ -12,7 +12,6 @@ This ASP.NET Core application manages user configuration, file uploads to AWS S3
 ### Configuration Endpoints (Port 5196)
 - **GET /api/users/{userId}/configuration** - Load user configuration
 - **PUT /api/users/{userId}/configuration** - Save user configuration (including knowledge rules and files)
-- **POST /api/users/{userId}/processing-status** - Set processing status for user configuration (used by N8N workflow)
 
 ### Unanswered Questions Endpoints (Port 5196)
 - **GET /api/unanswered-questions** - Retrieve unanswered questions
@@ -33,7 +32,6 @@ This ASP.NET Core application manages user configuration, file uploads to AWS S3
 - **Tone Rules**: AI behavior and tone rules
 - **File Upload**: Support for PDF, DOCX, and TXT file uploads
 - **Granular Management**: Add, edit, and remove individual rules
-- **Processing Status**: Prevents concurrent uploads while N8N processes embeddings
 
 ### AI Assistant Chat
 - Integration with external endpoint for AI conversations
@@ -382,23 +380,6 @@ DELETE /api/unanswered-questions/{questionId}
 # Upload configuration
 POST /api/files/upload
 Content-Type: multipart/form-data
-```
-
-### Processing Status Management
-```bash
-# Set processing status (used by N8N workflow)
-POST /api/users/{userId}/processing-status
-Content-Type: application/json
-
-{
-  "isProcessing": true
-}
-
-# Response:
-{
-  "success": true,
-  "message": "Processing status set to true"
-}
 ```
 
 ## ExceptionBoundary: Centralized Exception Handling in Controllers

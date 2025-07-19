@@ -154,42 +154,6 @@ namespace RAG.Services
             }
         }
 
-        public async Task<bool> SetUserConfigurationProcessingStatusAsync(Guid userId, bool isProcessing)
-        {
-            try
-            {
-                using var context = _contextFactory.CreateDbContext();
-                var userConfig = await context.UserConfigurations.FindAsync(userId);
-                
-                if (userConfig == null)
-                {
-                    return false;
-                }
-                
-                userConfig.IsProcessing = isProcessing;
-                await context.SaveChangesAsync();
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public async Task<bool> IsUserConfigurationProcessingAsync(Guid userId)
-        {
-            try
-            {
-                using var context = _contextFactory.CreateDbContext();
-                var userConfig = await context.UserConfigurations.FindAsync(userId);
-                return userConfig?.IsProcessing ?? false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
 #region PRIVATE METHODS
         private async Task<List<KnowledgeRule>> GetKnowledgeRulesAllAsync(Guid userId)
         {
