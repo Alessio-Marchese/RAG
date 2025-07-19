@@ -32,7 +32,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante il recupero della configurazione utente per l'utente {userId}: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante il recupero della configurazione utente per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
 
@@ -115,7 +116,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante l'aggiornamento della configurazione utente: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante l'aggiornamento della configurazione utente: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
 
@@ -132,7 +134,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante il recupero delle domande non risposte: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante il recupero delle domande non risposte: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
 
@@ -157,7 +160,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante l'eliminazione della domanda non risposta: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante l'eliminazione della domanda non risposta: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
 
@@ -173,7 +177,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante il recupero delle knowledge rules per l'utente {userId}: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante il recupero delle knowledge rules per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
 
@@ -188,7 +193,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante il recupero dei file per l'utente {userId}: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante il recupero dei file per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
 #endregion

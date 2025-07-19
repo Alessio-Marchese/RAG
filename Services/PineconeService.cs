@@ -50,7 +50,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante l'eliminazione degli embedding da Pinecone per il namespace {namespaceName}: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante l'eliminazione degli embedding da Pinecone per il namespace {namespaceName}: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
     }

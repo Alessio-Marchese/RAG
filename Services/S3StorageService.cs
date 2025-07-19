@@ -38,7 +38,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante l'upload del file {fileName ?? file.FileName} su S3 per l'utente {userId}: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante l'upload del file {fileName ?? file.FileName} su S3 per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
 
@@ -65,7 +66,8 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw new Exception($"Errore durante l'eliminazione dei file dall'S3 per l'utente {userId}: {ex.Message}", ex);
+                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
+                throw new Exception($"Errore durante l'eliminazione dei file dall'S3 per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
             }
         }
     }
