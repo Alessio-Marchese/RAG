@@ -7,13 +7,11 @@ namespace RAG.Middlewares
     {
         private readonly RequestDelegate _next;
         private readonly TokenValidationParameters _tokenValidationParameters;
-        private readonly ILogger<CookieJwtValidationMiddleware> _logger;
 
-        public CookieJwtValidationMiddleware(RequestDelegate next, TokenValidationParameters tokenValidationParameters, ILogger<CookieJwtValidationMiddleware> logger)
+        public CookieJwtValidationMiddleware(RequestDelegate next, TokenValidationParameters tokenValidationParameters)
         {
             _next = next;
             _tokenValidationParameters = tokenValidationParameters;
-            _logger = logger;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -29,11 +27,9 @@ namespace RAG.Middlewares
                     var email = principal.FindFirst("email")?.Value;
                     var name = principal.FindFirst("name")?.Value;
                     var subscription = principal.FindFirst("subscription")?.Value;
-                    _logger.LogInformation($"[CookieJwt] Token valido. sub: {sub}, email: {email}, name: {name}, subscription: {subscription}");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning($"[CookieJwt] Token non valido: {ex.Message}");
                     context.Response.StatusCode = 401;
                     await context.Response.WriteAsync("Token non valido o scaduto");
                     return;
@@ -41,7 +37,6 @@ namespace RAG.Middlewares
             }
             else
             {
-                _logger.LogWarning("[CookieJwt] Cookie app_token mancante");
                 context.Response.StatusCode = 401;
                 await context.Response.WriteAsync("Token mancante");
                 return;

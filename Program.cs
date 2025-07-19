@@ -31,8 +31,11 @@ builder.Services.AddAWSService<IAmazonS3>();
 builder.Services.AddScoped<S3StorageService>();
 
 // Configurazione database SQLite
+var connectionString = builder.Environment.IsDevelopment() 
+    ? "Data Source=rag_database.db"
+    : builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(connectionString));
 
 // Servizi applicazione
 builder.Services.AddScoped<IUserConfigService, UserConfigService>();
@@ -44,7 +47,7 @@ var pineconeSection = builder.Configuration.GetSection("Pinecone");
 var pineconeApiKey = pineconeSection["ApiKey"] ?? throw new InvalidOperationException("Pinecone ApiKey is not configured");
 var pineconeIndexHost = pineconeSection["IndexHost"] ?? throw new InvalidOperationException("Pinecone IndexHost is not configured");
 builder.Services.AddHttpClient<PineconeService>();
-builder.Services.AddSingleton<PineconeService>(sp =>
+builder.Services.AddSingleton<IPineconeService>(sp =>
 {
     var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(PineconeService));
     return new PineconeService(httpClient, pineconeApiKey, pineconeIndexHost);

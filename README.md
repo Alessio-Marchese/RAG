@@ -1,121 +1,132 @@
 # RAG - Refactored Application Guide
 
-## Descrizione Generale
-Questa applicazione ASP.NET Core gestisce la configurazione utente, l'upload di file su AWS S3 e la gestione di embeddings tramite Pinecone. Il codice è stato completamente refattorizzato per mantenere solo le funzionalità effettivamente utilizzate dal frontend, garantendo chiarezza, manutenibilità e performance ottimali.
+## General Description
+This ASP.NET Core application manages user configuration, file uploads to AWS S3, and embedding management via Pinecone. The code has been fully refactored to retain only the features actually used by the frontend, ensuring clarity, maintainability, and optimal performance.
 
-## Endpoint API Utilizzati dal Frontend
+## API Endpoints Used by the Frontend
 
-### Endpoint di Autenticazione (Porta 5140)
-- **GET /api/auth/me** - Verifica autenticazione utente
-- **POST /api/auth/logout** - Logout utente
+### Authentication Endpoints (Port 5140)
+- **GET /api/auth/me** - Verify user authentication
+- **POST /api/auth/logout** - User logout
 
-### Endpoint di Configurazione (Porta 5196)
-- **GET /api/users/{userId}/configuration** - Carica configurazione utente
-- **PUT /api/users/{userId}/configuration** - Salva configurazione utente
-- **POST /api/files/upload** - Upload file per configurazione
+### Configuration Endpoints (Port 5196)
+- **GET /api/users/{userId}/configuration** - Load user configuration
+- **PUT /api/users/{userId}/configuration** - Save user configuration (including knowledge rules and files)
+- **POST /api/users/{userId}/processing-status** - Set processing status for user configuration (used by N8N workflow)
 
-### Endpoint Domande Non Risposte (Porta 5196)
-- **GET /api/unanswered-questions** - Recupera domande senza risposta
-- **POST /api/unanswered-questions/{questionId}/answer** - Risponde a una domanda
-- **DELETE /api/unanswered-questions/{questionId}** - Elimina una domanda
+### Unanswered Questions Endpoints (Port 5196)
+- **GET /api/unanswered-questions** - Retrieve unanswered questions
+- **DELETE /api/unanswered-questions/{questionId}** - Delete a question
 
-### Endpoint Chat Esterno
-- **POST https://n8n-alessio-marchese.com/webhook/chat** - Invia messaggio chat e riceve risposta
+### External Chat Endpoint
+- **POST https://n8n-alessio-marchese.com/webhook/chat** - Send chat message and receive response
 
-## Funzionalità Principali
+## Main Features
 
-### Autenticazione e Gestione Sessione
-- Autenticazione basata su JWT tramite cookie
-- Validazione automatica dei token tramite middleware custom
-- Controllo accessi per garantire che ogni utente acceda solo ai propri dati
+### Authentication and Session Management
+- JWT-based authentication via cookie
+- Automatic token validation via custom middleware
+- Access control to ensure each user accesses only their own data
 
-### Configurazione Personalizzata dell'AI
-- **Knowledge Rules**: Regole di conoscenza personalizzate per l'AI
-- **Tone Rules**: Regole di comportamento e tono per l'AI
-- **File Upload**: Supporto per upload di file PDF, DOCX e TXT
-- **Gestione Granulare**: Aggiunta, modifica e rimozione individuale di regole
+### Custom AI Configuration
+- **Knowledge Rules**: Custom knowledge rules for the AI
+- **Tone Rules**: AI behavior and tone rules
+- **File Upload**: Support for PDF, DOCX, and TXT file uploads
+- **Granular Management**: Add, edit, and remove individual rules
+- **Processing Status**: Prevents concurrent uploads while N8N processes embeddings
 
-### Chat con Assistente AI
-- Integrazione con endpoint esterno per conversazioni AI
-- Utilizzo delle configurazioni personalizzate per personalizzare le risposte
+### AI Assistant Chat
+- Integration with external endpoint for AI conversations
+- Use of custom configurations to personalize responses
 
-### Gestione Knowledge Base
-- Sistema di domande senza risposta per migliorare la knowledge base
-- Possibilità di rispondere alle domande e convertirle in knowledge rules
-- Eliminazione di domande non pertinenti
+### Knowledge Base Management
+- System for tracking unanswered questions
+- Deletion of irrelevant questions
 
-## Struttura del Progetto
+## Project Structure
 
-### Controller
-- **UsersController**: Gestisce le configurazioni utente complete (GET/PUT)
-- **UnansweredQuestionsController**: Gestisce le domande non risposte (GET, POST answer, DELETE)
-- **FilesController**: Gestisce l'upload di file per configurazione
+### Controllers
+- **UsersController**: Manages complete user configurations (GET/PUT) including knowledge rules and files
+- **UnansweredQuestionsController**: Manages unanswered questions (GET, DELETE)
 
-### Servizi
-- **SqliteDataService**: Gestisce la persistenza dei dati con database SQLite
-- **UserConfigService**: Parsing e serializzazione della configurazione utente
-- **S3StorageService**: Gestione storage su AWS S3
-- **PineconeService**: Gestione embeddings su Pinecone
-- **CookieJwtValidationMiddleware**: Middleware custom per validazione JWT
+### Services
+- **SqliteDataService**: Handles data persistence with SQLite database
+- **UserConfigService**: Parsing and serialization of user configuration
+- **S3StorageService**: AWS S3 storage management
+- **PineconeService**: Pinecone embeddings management
+- **CookieJwtValidationMiddleware**: Custom middleware for JWT validation
 
-### Modelli Dati
-- **UserConfiguration**: Configurazione completa dell'utente
-- **KnowledgeRule**: Regola di conoscenza
-- **ToneRule**: Regola di tono/comportamento
-- **UnansweredQuestion**: Domanda non risposta
-- **File**: File caricato dall'utente
+### Data Models
+- **UserConfiguration**: Complete user configuration
+- **KnowledgeRule**: Knowledge rule
+- **UnansweredQuestion**: Unanswered question
+- **File**: File uploaded by the user
 
-## Formati di File Supportati
+### DTOs (Data Transfer Objects)
+- **FileRequest**: File upload request (includes Base64 content)
+- **FileResponse**: File response data (includes Base64 content)
+- **KnowledgeRuleRequest**: Knowledge rule request
+- **KnowledgeRuleResponse**: Knowledge rule response
+- **UserConfigurationResponse**: Complete user configuration response
+- **UpdateUserConfigurationRequest**: Configuration update request
 
-L'applicazione supporta l'estrazione automatica del testo dai seguenti formati:
+## Supported File Formats
 
-- **PDF (.pdf)**: Estrazione testo tramite PdfPig
-- **Word (.docx)**: Estrazione testo tramite DocX
-- **Testo semplice (.txt)**: Lettura diretta
-- **Altri formati**: Fallback a lettura come testo
+The application automatically extracts text from the following formats:
 
-## Principali Migliorie del Refactor
+- **PDF (.pdf)**: Text extraction via PdfPig
+- **Word (.docx)**: Text extraction via DocX
+- **Plain text (.txt)**: Direct reading
+- **Other formats**: Fallback to text reading
 
-### Rimozione Codice Inutile
-- Eliminati controller non utilizzati (KnowledgeRulesController, ToneRulesController)
-- Rimossi endpoint non utilizzati dal frontend
-- Semplificato SqliteDataService rimuovendo metodi non necessari
-- Eliminati modelli di request/response non utilizzati
+## Main Refactor Improvements
 
-### Ottimizzazione Performance
-- Rimossa logica di sincronizzazione S3 non necessaria
-- Semplificata gestione delle transazioni database
-- Ridotto logging eccessivo
-- Eliminati metodi di parsing file non utilizzati
+### Removal of Unused Code
+- Removed unused controllers (KnowledgeRulesController, FilesController)
+- Removed endpoints not used by the frontend
+- Simplified SqliteDataService by removing unnecessary methods
+- Removed unused request/response models
 
-### Miglioramento Manutenibilità
-- Codice più pulito e focalizzato
-- Separazione chiara delle responsabilità
-- Documentazione aggiornata e accurata
-- Struttura modulare semplificata
+### File Content Management
+- **Full Save**: File content is now saved in the SQLite database (previously was set as an empty string)
+- **Content Retrieval**: The configuration GET now returns the full file content
+- **Structured DTOs**: New DTOs (FileResponse, UserConfigurationResponse) for more structured responses
+- **Compatibility**: Maintained compatibility with the existing frontend
 
-### Aggiornamento a .NET 8.0
-- Migrazione da .NET 9.0 a .NET 8.0 (LTS)
-- Aggiornamento di tutte le dipendenze per compatibilità
-- Sostituzione di Microsoft.AspNetCore.OpenApi con Swashbuckle.AspNetCore
-- Miglioramento della stabilità e supporto a lungo termine
+### Performance Optimization
+- Removed unnecessary S3 sync logic
+- Simplified database transaction management
+- Reduced excessive logging
+- Removed unused file parsing methods
 
-## Deployment in Produzione
+### Improved Maintainability
+- Cleaner, more focused code
+- Clear separation of responsibilities
+- Updated and accurate documentation
+- Simplified modular structure
 
-### 🚀 Opzioni di Deployment
+### Upgrade to .NET 8.0
+- Migration from .NET 9.0 to .NET 8.0 (LTS)
+- Updated all dependencies for compatibility
+- Replaced Microsoft.AspNetCore.OpenApi with Swashbuckle.AspNetCore
+- Improved stability and long-term support
 
-> **Nota**: Il progetto è stato configurato per deployment diretto su VM Linux senza Docker per semplificare la gestione e ridurre la complessità. Tutte le configurazioni Docker sono state rimosse.
+## Production Deployment
 
-#### 1. **Deployment Diretto su VM Linux**
+### 🚀 Deployment Options
+
+> **Note**: The project is configured for direct deployment on a Linux VM without Docker to simplify management and reduce complexity. All Docker configurations have been removed.
+
+#### 1. **Direct Deployment on Linux VM**
 ```bash
-# Clona il repository sulla VM
+# Clone the repository on the VM
 git clone <repository-url>
 cd RAG
 
-# Rendi eseguibile lo script di deployment
+# Make the deployment script executable
 chmod +x deploy-production.sh
 
-# Configura le variabili d'ambiente (OPZIONALE - sovrascrivono appsettings.Production.json)
+# Configure environment variables (OPTIONAL - override appsettings.Production.json)
 export AWS_ACCESS_KEY_ID="your-aws-key"
 export AWS_SECRET_ACCESS_KEY="your-aws-secret"
 export AWS_BUCKET_NAME="your-bucket-name"
@@ -125,29 +136,25 @@ export JWT_AUDIENCE="your-audience"
 export PINECONE_API_KEY="your-pinecone-key"
 export PINECONE_INDEX_HOST="your-pinecone-host"
 
-# Esegui il deployment
+# Run the deployment
 ./deploy-production.sh
 
-# L'applicazione sarà disponibile su http://<IP-VM>:5000
+# The application will be available at http://<IP-VM>:5000
 ```
 
+### 🔧 Production Configuration
 
+#### 📋 Configuration Hierarchy
 
+The application follows this configuration hierarchy (from lowest to highest):
 
+1. **`appsettings.json`** - Base configuration
+2. **`appsettings.Production.json`** - Production configuration (overrides appsettings.json)
+3. **Environment variables** - Override configuration files
 
-### 🔧 Configurazione Produzione
+#### ⚙️ Configuration in appsettings.Production.json
 
-#### 📋 Gerarchia di Configurazione
-
-L'applicazione segue questa gerarchia di configurazione (dal più basso al più alto):
-
-1. **`appsettings.json`** - Configurazione di base
-2. **`appsettings.Production.json`** - Configurazione produzione (sovrascrive appsettings.json)
-3. **Variabili d'ambiente** - Sovrascrivono i file di configurazione
-
-#### ⚙️ Configurazione in appsettings.Production.json
-
-Il file `appsettings.Production.json` contiene già valori di default per la produzione:
+The `appsettings.Production.json` file already contains default values for production:
 
 ```json
 {
@@ -166,17 +173,17 @@ Il file `appsettings.Production.json` contiene già valori di default per la pro
 }
 ```
 
-**Per usare solo appsettings.Production.json:**
-1. Modifica direttamente i valori nel file
-2. Non impostare variabili d'ambiente
-3. L'applicazione userà i valori del file
+**To use only appsettings.Production.json:**
+1. Edit the values directly in the file
+2. Do not set environment variables
+3. The application will use the file values
 
-**Per usare variabili d'ambiente (RACCOMANDATO per sicurezza):**
-1. Lascia i valori placeholder in appsettings.Production.json
-2. Imposta le variabili d'ambiente con i valori reali
-3. Le variabili d'ambiente sovrascriveranno i valori del file
+**To use environment variables (RECOMMENDED for security):**
+1. Leave placeholder values in appsettings.Production.json
+2. Set environment variables with the real values
+3. Environment variables will override the file values
 
-#### 🔐 Variabili d'Ambiente (Raccomandato)
+#### 🔐 Environment Variables (Recommended)
 
 ```bash
 # AWS Configuration
@@ -195,55 +202,51 @@ PINECONE_API_KEY=your-pinecone-api-key
 PINECONE_INDEX_HOST=your-pinecone-index-host
 ```
 
-**Vantaggi delle variabili d'ambiente:**
-- ✅ Non vengono committate nel repository
-- ✅ Più sicure per gestire secrets
-- ✅ Facili da cambiare senza modificare file
-- ✅ Standard per deployment containerizzati
+**Advantages of environment variables:**
+- ✅ Not committed to the repository
+- ✅ More secure for managing secrets
+- ✅ Easy to change without editing files
+- ✅ Standard for containerized deployments
 
-#### 🔧 Configurazione Firewall (Linux)
+#### 🔧 Firewall Configuration (Linux)
 ```bash
-# Abilita porta 5000
+# Enable port 5000
 sudo ufw allow 5000/tcp
 ```
 
-### 📊 Monitoraggio e Gestione (Linux)
+### 📊 Monitoring and Management (Linux)
 ```bash
-# Verifica stato
+# Check status
 sudo systemctl status rag-api.service
 
-# Logs in tempo reale
+# Real-time logs
 sudo journalctl -u rag-api.service -f
 
-# Riavvio servizio
+# Restart service
 sudo systemctl restart rag-api.service
 
-# Stop servizio
+# Stop service
 sudo systemctl stop rag-api.service
 ```
 
+### 🌐 Application Access
 
-
-
-
-### 🌐 Accesso all'Applicazione
-
-Dopo il deployment, l'applicazione sarà disponibile su:
+After deployment, the application will be available at:
 - **URL**: http://your-vm-ip:5000
 - **Health Check**: http://your-vm-ip:5000/health
 - **API Endpoints**: http://your-vm-ip:5000/api/*
 
-### 🔒 Sicurezza in Produzione
+### 🔒 Production Security
 
-1. **Firewall**: Configura il firewall per permettere solo la porta 5000
-2. **HTTPS**: Usa un reverse proxy (nginx/Apache) con SSL
-3. **Secrets**: Usa variabili d'ambiente per i secrets (non committare nel repository)
-4. **Updates**: Mantieni aggiornati .NET e le dipendenze
-5. **Monitoring**: Configura logging e monitoring
+1. **Firewall**: Configure the firewall to allow only port 5000
+2. **HTTPS**: Use a reverse proxy (nginx/Apache) with SSL
+3. **Secrets**: Use environment variables for secrets (do not commit to the repository)
+4. **Updates**: Keep .NET and dependencies up to date
+5. **Monitoring**: Configure logging and monitoring
 
-## Configurazione
+## Configuration
 
-### appsettings.json (Sviluppo)
+### appsettings.json (Development)
 ```json
 {
   "Logging": {
@@ -271,7 +274,7 @@ Dopo il deployment, l'applicazione sarà disponibile su:
 }
 ```
 
-### appsettings.Production.json (Produzione)
+### appsettings.Production.json (Production)
 ```json
 {
   "Logging": {
@@ -306,43 +309,57 @@ Dopo il deployment, l'applicazione sarà disponibile su:
 }
 ```
 
-### Variabili d'Ambiente (Sovrascrivono appsettings)
-- **AWS_ACCESS_KEY_ID**: Chiave di accesso AWS
-- **AWS_SECRET_ACCESS_KEY**: Chiave segreta AWS
-- **AWS_REGION**: Regione AWS (es. us-east-1)
-- **AWS_BUCKET_NAME**: Nome bucket S3
-- **JWT_KEY**: Chiave JWT per firma token
-- **JWT_ISSUER**: Issuer JWT
-- **JWT_AUDIENCE**: Audience JWT
-- **PINECONE_API_KEY**: Chiave API Pinecone
-- **PINECONE_INDEX_HOST**: Host indice Pinecone
+### Environment Variables (Override appsettings)
+- **AWS_ACCESS_KEY_ID**: AWS access key
+- **AWS_SECRET_ACCESS_KEY**: AWS secret key
+- **AWS_REGION**: AWS region (e.g. us-east-1)
+- **AWS_BUCKET_NAME**: S3 bucket name
+- **JWT_KEY**: JWT signing key
+- **JWT_ISSUER**: JWT issuer
+- **JWT_AUDIENCE**: JWT audience
+- **PINECONE_API_KEY**: Pinecone API key
+- **PINECONE_INDEX_HOST**: Pinecone index host
 
-## Esempi di Utilizzo
+## Usage Examples
 
-### Configurazione Utente
+### User Configuration
 ```bash
-# Recupera configurazione
+# Retrieve configuration (includes file content)
 GET /api/users/{userId}/configuration
 
-# Aggiorna configurazione
-PUT /api/users/{userId}/configuration
+# Response:
 {
+  "userId": "user-guid",
   "knowledgeRules": [
     {
       "id": "kr-1",
-      "content": "Contenuto della regola"
-    }
-  ],
-  "toneRules": [
-    {
-      "id": "tr-1", 
-      "content": "Regola di comportamento"
+      "content": "Rule content"
     }
   ],
   "files": [
     {
       "id": "f-1",
-      "name": "documento.pdf",
+      "name": "document.pdf",
+      "contentType": "application/pdf",
+      "size": 1024000,
+      "content": "base64-encoded-content"
+    }
+  ]
+}
+
+# Update configuration
+PUT /api/users/{userId}/configuration
+{
+  "knowledgeRules": [
+    {
+      "id": "kr-1",
+      "content": "Rule content"
+    }
+  ],
+  "files": [
+    {
+      "id": "f-1",
+      "name": "document.pdf",
       "contentType": "application/pdf",
       "size": 1024000,
       "content": "base64-encoded-content"
@@ -351,55 +368,94 @@ PUT /api/users/{userId}/configuration
 }
 ```
 
-### Gestione Domande Non Risposte
+### Unanswered Questions Management
 ```bash
-# Lista domande
+# List questions
 GET /api/unanswered-questions
 
-# Rispondi a domanda
-POST /api/unanswered-questions/{questionId}/answer
-{
-  "answer": "Risposta alla domanda",
-  "userId": "user-123"
-}
-
-# Elimina domanda
+# Delete question
 DELETE /api/unanswered-questions/{questionId}
 ```
 
-### Upload File
+### File Upload
 ```bash
-# Upload configurazione
+# Upload configuration
 POST /api/files/upload
 Content-Type: multipart/form-data
 ```
 
-## Dipendenze
+### Processing Status Management
+```bash
+# Set processing status (used by N8N workflow)
+POST /api/users/{userId}/processing-status
+Content-Type: application/json
+
+{
+  "isProcessing": true
+}
+
+# Response:
+{
+  "success": true,
+  "message": "Processing status set to true"
+}
+```
+
+## ExceptionBoundary: Centralized Exception Handling in Controllers
+
+To avoid duplicating try-catch blocks in controllers, the project uses the `ExceptionBoundary` pattern. This pattern centralizes exception handling and simplifies endpoint implementation.
+
+### How it works
+- Controllers no longer write try-catch blocks for error handling.
+- The endpoint logic is passed to `ExceptionBoundary.RunAsync`, which handles exceptions and returns a consistent HTTP response.
+- Common exceptions (e.g. `ArgumentException`, `UnauthorizedAccessException`) are mapped to appropriate HTTP responses (400, 401, etc.), while others result in a 500 response.
+
+### Usage Example
+
+```csharp
+[HttpGet("{userId}/configuration")]
+public Task<IActionResult> GetUserConfiguration(Guid userId)
+{
+    return ExceptionBoundary.RunAsync(async () =>
+    {
+        // ... endpoint logic ...
+    });
+}
+```
+
+### Advantages
+- **Centralization**: All exception handling is in one place.
+- **Cleanliness**: Controllers are more readable and maintainable.
+- **Customization**: It's easy to change error handling logic in the future.
+
+The class is located in `Services/ExceptionBoundary.cs`.
+
+## Dependencies
 - .NET 8.0 (LTS)
 - AWS SDK S3 (3.7.306)
 - Pinecone API (via HttpClient)
 - Microsoft.AspNetCore.Authentication.JwtBearer (8.0.0)
 - Entity Framework Core SQLite (8.0.0)
 - Swashbuckle.AspNetCore (6.5.0)
-- UglyToad.PdfPig (per PDF)
-- Xceed.Words.NET (per DOCX)
+- UglyToad.PdfPig (for PDF)
+- Xceed.Words.NET (for DOCX)
 
-## Sicurezza
-- **Autenticazione JWT**: Validazione tramite middleware custom
-- **Autorizzazione**: Controllo accessi per utente
-- **Validazione Input**: Controllo completo dei dati in ingresso
-- **Gestione File**: Controllo tipo e dimensione file
-- **Configurazione Sicura**: Chiavi tramite appsettings.json e variabili d'ambiente
+## Security
+- **JWT Authentication**: Validation via custom middleware
+- **Authorization**: User access control
+- **Input Validation**: Complete input data validation
+- **File Management**: File type and size checks
+- **Secure Configuration**: Keys via appsettings.json and environment variables
 
 ## Testing
-Per testare l'applicazione:
-1. Configurare le variabili d'ambiente AWS
-2. Aggiornare appsettings.json con le configurazioni JWT e Pinecone
-3. Avviare l'applicazione con `dotnet run`
-4. Il database SQLite verrà creato automaticamente
-5. Swagger UI disponibile su `/swagger` in ambiente di sviluppo
+To test the application:
+1. Configure AWS environment variables
+2. Update appsettings.json with JWT and Pinecone configurations
+3. Start the application with `dotnet run`
+4. The SQLite database will be created automatically
+5. Swagger UI available at `/swagger` in development environment
 
-## Note Finali
-L'applicazione è ora completamente ottimizzata e allineata con i requisiti del frontend. Il refactor ha eliminato tutto il codice inutile mantenendo solo le funzionalità essenziali, migliorando significativamente performance e manutenibilità. La migrazione a .NET 8.0 garantisce stabilità e supporto a lungo termine. Il deployment in produzione è stato semplificato rimuovendo Docker e configurando deployment diretto su VM Linux per ridurre la complessità e migliorare la gestione.
+## Final Notes
+The application is now fully optimized and aligned with frontend requirements. The refactor has removed all unnecessary code, retaining only essential features, significantly improving performance and maintainability. Migration to .NET 8.0 ensures stability and long-term support. Production deployment has been simplified by removing Docker and configuring direct deployment on Linux VM to reduce complexity and improve management.
 
-Per domande o contributi, modificare questo file o aprire una issue. 
+For questions or contributions, edit this file or open an issue. 

@@ -37,16 +37,6 @@ Cookie: jwt=your-jwt-token-here
       "content": "Il prodotto principale è un CRM per piccole imprese"
     }
   ],
-  "toneRules": [
-    {
-      "id": "tr-1",
-      "content": "Sii sempre professionale ma amichevole"
-    },
-    {
-      "id": "tr-2",
-      "content": "Usa un linguaggio tecnico ma comprensibile"
-    }
-  ],
   "files": [
     {
       "id": "f-1",
@@ -58,10 +48,17 @@ Cookie: jwt=your-jwt-token-here
   ]
 }
 
-### Upload file per configurazione
-POST https://localhost:5196/api/files/upload
-Content-Type: multipart/form-data
+### Imposta stato di processing (usato da N8N)
+POST https://localhost:5196/api/users/{{userId}}/processing-status
+Content-Type: application/json
 Cookie: jwt=your-jwt-token-here
+
+{
+  "isProcessing": true
+}
+
+### Upload file per configurazione (gestito tramite PUT configuration)
+### I file vengono inviati come parte della configurazione completa
 
 ### ========================================
 ### DOMANDE NON RISPOSTE (Porta 5196)
@@ -71,15 +68,7 @@ Cookie: jwt=your-jwt-token-here
 GET https://localhost:5196/api/unanswered-questions
 Cookie: jwt=your-jwt-token-here
 
-### Rispondi a una domanda specifica
-POST https://localhost:5196/api/unanswered-questions/{{questionId}}/answer
-Content-Type: application/json
-Cookie: jwt=your-jwt-token-here
 
-{
-  "answer": "Questa è la risposta alla domanda dell'utente",
-  "userId": "{{userId}}"
-}
 
 ### Elimina una domanda non risposta
 DELETE https://localhost:5196/api/unanswered-questions/{{questionId}}
@@ -98,7 +87,6 @@ Content-Type: application/json
   "userId": "{{userId}}",
   "configuration": {
     "knowledgeRules": [...],
-    "toneRules": [...],
     "files": [...]
   }
 }
@@ -125,6 +113,7 @@ Content-Type: application/json
 ### Endpoint rimossi durante il refactor:
 ### - /api/knowledge-rules (controller eliminato)
 ### - /api/tone-rules (controller eliminato)
+### - /api/files/upload (controller eliminato - gestito da PUT configuration)
 ### - Endpoint di test e mock (rimossi)
 ### - Logging eccessivo (semplificato)
 
