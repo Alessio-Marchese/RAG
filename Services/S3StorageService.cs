@@ -24,17 +24,17 @@ namespace RAG.Services
         {
             try
             {
-                var key = $"{userId}/{Guid.NewGuid()}_{fileName ?? file.FileName}";
-                using var stream = file.OpenReadStream();
-                var uploadRequest = new TransferUtilityUploadRequest
-                {
-                    InputStream = stream,
-                    Key = key,
-                    BucketName = _bucketName,
-                    ContentType = file.ContentType
-                };
-                var transferUtility = new TransferUtility(_s3Client);
-                await transferUtility.UploadAsync(uploadRequest);
+            var key = $"{userId}/{Guid.NewGuid()}_{fileName ?? file.FileName}";
+            using var stream = file.OpenReadStream();
+            var uploadRequest = new TransferUtilityUploadRequest
+            {
+                InputStream = stream,
+                Key = key,
+                BucketName = _bucketName,
+                ContentType = file.ContentType
+            };
+            var transferUtility = new TransferUtility(_s3Client);
+            await transferUtility.UploadAsync(uploadRequest);
             }
             catch (Exception ex)
             {

@@ -7,6 +7,7 @@
 - **Better Debugging**: Database, S3, and Pinecone operations now include context-specific error information
 - **User-Friendly Responses**: Users receive meaningful error messages that help identify the root cause of issues
 - **Consistent Error Format**: All errors follow a standardized format with clear descriptions and context
+- **AWS Credentials Fix**: Fixed production issue where AWS S3 operations were failing due to incorrect credential configuration - now uses explicit credentials from appsettings.json
 
 ## General Description
 This ASP.NET Core application manages user configuration, file uploads to AWS S3, and embedding management via Pinecone. The code has been fully refactored to retain only the features actually used by the frontend, ensuring clarity, maintainability, and optimal performance.

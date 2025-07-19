@@ -2,6 +2,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Amazon.S3;
+using Amazon.Runtime;
 using Microsoft.EntityFrameworkCore;
 using RAG.Data;
 using RAG.Services;
@@ -27,7 +28,15 @@ var tokenValidationParameters = new TokenValidationParameters
 builder.Services.AddSingleton(tokenValidationParameters);
 
 // Servizi AWS S3
-builder.Services.AddAWSService<IAmazonS3>();
+var awsSection = builder.Configuration.GetSection("AWS");
+var awsAccessKey = awsSection["AccessKey"] ?? throw new InvalidOperationException("AWS AccessKey is not configured");
+var awsSecretKey = awsSection["SecretKey"] ?? throw new InvalidOperationException("AWS SecretKey is not configured");
+var awsRegion = awsSection["Region"] ?? throw new InvalidOperationException("AWS Region is not configured");
+
+var awsCredentials = new Amazon.Runtime.BasicAWSCredentials(awsAccessKey, awsSecretKey);
+var awsRegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(awsRegion);
+
+builder.Services.AddSingleton<IAmazonS3>(sp => new AmazonS3Client(awsCredentials, awsRegionEndpoint));
 builder.Services.AddScoped<S3StorageService>();
 
 // Configurazione database SQLite

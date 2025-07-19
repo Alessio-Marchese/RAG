@@ -169,11 +169,11 @@ namespace RAG.Services
         private async Task<List<KnowledgeRule>> GetKnowledgeRulesAllAsync(Guid userId)
         {
             try
-            {
-                return await _context.KnowledgeRules
-                    .AsNoTracking()
-                    .Where(kr => EF.Property<Guid>(kr, "UserId") == userId)
-                    .ToListAsync();
+        {
+            return await _context.KnowledgeRules
+                .AsNoTracking()
+                .Where(kr => EF.Property<Guid>(kr, "UserId") == userId)
+                .ToListAsync();
             }
             catch (Exception ex)
             {
@@ -185,11 +185,11 @@ namespace RAG.Services
         private async Task<List<FileEntity>> GetFilesAllAsync(Guid userId)
         {
             try
-            {
-                return await _context.Files
-                    .AsNoTracking()
-                    .Where(f => EF.Property<Guid>(f, "UserId") == userId)
-                    .ToListAsync();
+        {
+            return await _context.Files
+                .AsNoTracking()
+                .Where(f => EF.Property<Guid>(f, "UserId") == userId)
+                .ToListAsync();
             }
             catch (Exception ex)
             {

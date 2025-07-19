@@ -130,25 +130,25 @@ namespace RAG.Controllers
                 );
                 
                 if (success)
-                {
-                    var allInfo = _userConfigService.SerializeUserConfigForS3(
-                        request.KnowledgeRules ?? [],
-                        request.Files ?? []
-                    );
-                    
-                    var fileNameToUpload = "user_config.txt";
-                    var fileBytes = Encoding.UTF8.GetBytes(allInfo);
-                    using var stream = new MemoryStream(fileBytes);
+                    {
+                        var allInfo = _userConfigService.SerializeUserConfigForS3(
+                            request.KnowledgeRules ?? [],
+                            request.Files ?? []
+                        );
+                        
+                        var fileNameToUpload = "user_config.txt";
+                        var fileBytes = Encoding.UTF8.GetBytes(allInfo);
+                        using var stream = new MemoryStream(fileBytes);
 
                     await _storageService.DeleteAllUserFilesAsync(userId.ToString());
 
-                    await _storageService.UploadFileAsync(userId.ToString(), new FormFile(stream, 0, fileBytes.Length, "file", fileNameToUpload)
-                    {
-                        Headers = new HeaderDictionary(),
-                        ContentType = "text/plain"
-                    }, fileNameToUpload);
+                        await _storageService.UploadFileAsync(userId.ToString(), new FormFile(stream, 0, fileBytes.Length, "file", fileNameToUpload)
+                        {
+                            Headers = new HeaderDictionary(),
+                            ContentType = "text/plain"
+                        }, fileNameToUpload);
 
-                    return Ok(new SuccessResponse { Message = "Configuration updated successfully" });
+                        return Ok(new SuccessResponse { Message = "Configuration updated successfully" });
                 }
                 else
                 {
