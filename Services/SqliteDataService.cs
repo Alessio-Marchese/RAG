@@ -16,6 +16,8 @@ namespace RAG.Services
 
         public async Task<UserConfiguration?> GetUserConfigurationAsync(Guid userId)
         {
+            try
+            {
                 var userConfig = await _context.UserConfigurations
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.UserId == userId);
@@ -27,6 +29,11 @@ namespace RAG.Services
                 }
 
                 return userConfig;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Errore durante il recupero della configurazione utente per l'utente {userId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<bool> UpdateUserConfigurationGranularAsync(Guid userId, 
@@ -108,7 +115,7 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw;
+                throw new Exception($"Errore durante l'aggiornamento della configurazione utente: {ex.Message}", ex);
             }
         }
 
@@ -125,7 +132,7 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw;
+                throw new Exception($"Errore durante il recupero delle domande non risposte: {ex.Message}", ex);
             }
         }
 
@@ -150,25 +157,39 @@ namespace RAG.Services
             }
             catch (Exception ex)
             {
-                throw;
+                throw new Exception($"Errore durante l'eliminazione della domanda non risposta: {ex.Message}", ex);
             }
         }
 
 #region PRIVATE METHODS
         private async Task<List<KnowledgeRule>> GetKnowledgeRulesAllAsync(Guid userId)
         {
-            return await _context.KnowledgeRules
-                .AsNoTracking()
-                .Where(kr => EF.Property<Guid>(kr, "UserId") == userId)
-                .ToListAsync();
+            try
+            {
+                return await _context.KnowledgeRules
+                    .AsNoTracking()
+                    .Where(kr => EF.Property<Guid>(kr, "UserId") == userId)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Errore durante il recupero delle knowledge rules per l'utente {userId}: {ex.Message}", ex);
+            }
         }
 
         private async Task<List<FileEntity>> GetFilesAllAsync(Guid userId)
         {
-            return await _context.Files
-                .AsNoTracking()
-                .Where(f => EF.Property<Guid>(f, "UserId") == userId)
-                .ToListAsync();
+            try
+            {
+                return await _context.Files
+                    .AsNoTracking()
+                    .Where(f => EF.Property<Guid>(f, "UserId") == userId)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Errore durante il recupero dei file per l'utente {userId}: {ex.Message}", ex);
+            }
         }
 #endregion
     }

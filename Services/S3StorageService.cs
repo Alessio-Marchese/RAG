@@ -22,17 +22,24 @@ namespace RAG.Services
 
         public async Task UploadFileAsync(string userId, IFormFile file, string? fileName = null)
         {
-            var key = $"{userId}/{Guid.NewGuid()}_{fileName ?? file.FileName}";
-            using var stream = file.OpenReadStream();
-            var uploadRequest = new TransferUtilityUploadRequest
+            try
             {
-                InputStream = stream,
-                Key = key,
-                BucketName = _bucketName,
-                ContentType = file.ContentType
-            };
-            var transferUtility = new TransferUtility(_s3Client);
-            await transferUtility.UploadAsync(uploadRequest);
+                var key = $"{userId}/{Guid.NewGuid()}_{fileName ?? file.FileName}";
+                using var stream = file.OpenReadStream();
+                var uploadRequest = new TransferUtilityUploadRequest
+                {
+                    InputStream = stream,
+                    Key = key,
+                    BucketName = _bucketName,
+                    ContentType = file.ContentType
+                };
+                var transferUtility = new TransferUtility(_s3Client);
+                await transferUtility.UploadAsync(uploadRequest);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Errore durante l'upload del file {fileName ?? file.FileName} su S3 per l'utente {userId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<bool> DeleteAllUserFilesAsync(string userId)
@@ -56,9 +63,9 @@ namespace RAG.Services
                 }
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                throw new Exception($"Errore durante l'eliminazione dei file dall'S3 per l'utente {userId}: {ex.Message}", ex);
             }
         }
     }

@@ -1,5 +1,13 @@
 # RAG - Refactored Application Guide
 
+## Recent Updates
+
+### Enhanced Error Handling (Latest)
+- **Improved Exception Messages**: All services now provide detailed, specific error messages instead of generic responses
+- **Better Debugging**: Database, S3, and Pinecone operations now include context-specific error information
+- **User-Friendly Responses**: Users receive meaningful error messages that help identify the root cause of issues
+- **Consistent Error Format**: All errors follow a standardized format with clear descriptions and context
+
 ## General Description
 This ASP.NET Core application manages user configuration, file uploads to AWS S3, and embedding management via Pinecone. The code has been fully refactored to retain only the features actually used by the frontend, ensuring clarity, maintainability, and optimal performance.
 
@@ -390,6 +398,7 @@ To avoid duplicating try-catch blocks in controllers, the project uses the `Exce
 - Controllers no longer write try-catch blocks for error handling.
 - The endpoint logic is passed to `ExceptionBoundary.RunAsync`, which handles exceptions and returns a consistent HTTP response.
 - Common exceptions (e.g. `ArgumentException`, `UnauthorizedAccessException`) are mapped to appropriate HTTP responses (400, 401, etc.), while others result in a 500 response.
+- **Enhanced Error Messages**: All services now include specific error messages in their exceptions, providing detailed information about what went wrong during operations.
 
 ### Usage Example
 
@@ -404,10 +413,21 @@ public Task<IActionResult> GetUserConfiguration(Guid userId)
 }
 ```
 
+### Enhanced Error Handling
+
+The application now provides detailed error messages for all operations:
+
+- **Database Operations**: Specific messages for database connection issues, constraint violations, etc.
+- **S3 Operations**: Detailed error messages for file upload/download failures, bucket access issues, etc.
+- **Pinecone Operations**: Specific messages for embedding deletion failures, API communication issues, etc.
+- **File Processing**: Detailed error messages for file format issues, extraction failures, etc.
+
 ### Advantages
 - **Centralization**: All exception handling is in one place.
 - **Cleanliness**: Controllers are more readable and maintainable.
 - **Customization**: It's easy to change error handling logic in the future.
+- **Debugging**: Detailed error messages help identify and resolve issues quickly.
+- **User Experience**: Users receive meaningful error messages instead of generic ones.
 
 The class is located in `Services/ExceptionBoundary.cs`.
 

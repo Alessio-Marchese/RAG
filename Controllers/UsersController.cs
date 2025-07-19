@@ -105,14 +105,7 @@ namespace RAG.Controllers
                 }
 
                 var pineconeNamespace = userId.ToString();
-                var pineconeDeleteOk = await _pineconeService.DeleteAllEmbeddingsInNamespaceAsync(pineconeNamespace);
-                if (!pineconeDeleteOk)
-                {
-                    return StatusCode(500, new ErrorResponse
-                    {
-                        Message = "Something went wrong communicating with Pinecone during delete operation."
-                    });
-                }
+                await _pineconeService.DeleteAllEmbeddingsInNamespaceAsync(pineconeNamespace);
 
                 var knowledgeRulesToAdd = request.KnowledgeRules?.Select(kr => new KnowledgeRule
                 {
@@ -138,35 +131,24 @@ namespace RAG.Controllers
                 
                 if (success)
                 {
-                    try
+                    var allInfo = _userConfigService.SerializeUserConfigForS3(
+                        request.KnowledgeRules ?? [],
+                        request.Files ?? []
+                    );
+                    
+                    var fileNameToUpload = "user_config.txt";
+                    var fileBytes = Encoding.UTF8.GetBytes(allInfo);
+                    using var stream = new MemoryStream(fileBytes);
+
+                    await _storageService.DeleteAllUserFilesAsync(userId.ToString());
+
+                    await _storageService.UploadFileAsync(userId.ToString(), new FormFile(stream, 0, fileBytes.Length, "file", fileNameToUpload)
                     {
-                        var allInfo = _userConfigService.SerializeUserConfigForS3(
-                            request.KnowledgeRules ?? [],
-                            request.Files ?? []
-                        );
-                        
-                        var fileNameToUpload = "user_config.txt";
-                        var fileBytes = Encoding.UTF8.GetBytes(allInfo);
-                        using var stream = new MemoryStream(fileBytes);
+                        Headers = new HeaderDictionary(),
+                        ContentType = "text/plain"
+                    }, fileNameToUpload);
 
-                        if (!await _storageService.DeleteAllUserFilesAsync(userId.ToString()))
-                            return StatusCode(500, new ErrorResponse
-                            {
-                                Message = "Something went wrong communicating with S3 during delete operation."
-                            });
-
-                        await _storageService.UploadFileAsync(userId.ToString(), new FormFile(stream, 0, fileBytes.Length, "file", fileNameToUpload)
-                        {
-                            Headers = new HeaderDictionary(),
-                            ContentType = "text/plain"
-                        }, fileNameToUpload);
-
-                        return Ok(new SuccessResponse { Message = "Configuration updated successfully" });
-                    }
-                    catch
-                    {   
-                        return StatusCode(500, new ErrorResponse { Message = "Something went wrong communicating with S3 during upload operation." });
-                    }
+                    return Ok(new SuccessResponse { Message = "Configuration updated successfully" });
                 }
                 else
                 {

@@ -48,9 +48,9 @@ namespace RAG.Services
                 else    
                     return false;
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                throw new Exception($"Errore durante l'eliminazione degli embedding da Pinecone per il namespace {namespaceName}: {ex.Message}", ex);
             }
         }
     }
