@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using RAG.Data;
 using RAG.Services;
 using RAG.Middlewares;
+using RAG.Facades;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +51,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IUserConfigService, UserConfigService>();
 builder.Services.AddScoped<IS3StorageService, S3StorageService>();
 builder.Services.AddScoped<SqliteDataService>();
+builder.Services.AddScoped<IUsersFacade, UsersFacade>();
+builder.Services.AddScoped<IUnansweredQuestionsFacade, UnansweredQuestionsFacade>();
+builder.Services.AddScoped<ISessionService, SessionService>();
+builder.Services.AddScoped<IExceptionBoundary, ExceptionBoundary>();
+builder.Services.AddHttpContextAccessor();
 
 // Configurazione Pinecone da appsettings.json
 var pineconeSection = builder.Configuration.GetSection("Pinecone");

@@ -38,21 +38,10 @@ namespace RAG.Services
             string jsonBody = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
-            try
-            {
-                var url = $"https://{_indexHost}/vectors/delete";
-                HttpResponseMessage response = await _httpClient.PostAsync(url, content);
+            var url = $"https://{_indexHost}/vectors/delete";
+            HttpResponseMessage response = await _httpClient.PostAsync(url, content);
 
-                if (response.IsSuccessStatusCode)
-                    return true;
-                else    
-                    return false;
-            }
-            catch (Exception ex)
-            {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante l'eliminazione degli embedding da Pinecone per il namespace {namespaceName}: {ex.Message}. Dettagli: {innerMessage}", ex);
-            }
+            return response.IsSuccessStatusCode;
         }
     }
 }

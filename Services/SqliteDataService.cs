@@ -1,3 +1,4 @@
+using Alessio.Marchese.Utils.Core;
 using Microsoft.EntityFrameworkCore;
 using RAG.Data;
 using RAG.Entities;
@@ -14,189 +15,151 @@ namespace RAG.Services
             _context = context;
         }
 
-        public async Task<UserConfiguration?> GetUserConfigurationAsync(Guid userId)
+        public async Task<Result<UserConfiguration>> GetUserConfigurationAsync(Guid userId)
         {
-            try
-            {
-                var userConfig = await _context.UserConfigurations
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(u => u.UserId == userId);
+            var userConfig = await _context.UserConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == userId);
 
-                if (userConfig != null)
-                {
-                    userConfig.KnowledgeRules = await GetKnowledgeRulesAllAsync(userId);
-                    userConfig.Files = await GetFilesAllAsync(userId);
-                }
-
-                return userConfig;
-            }
-            catch (Exception ex)
+            if (userConfig != null)
             {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante il recupero della configurazione utente per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
+                var knowledgeRulesResult = await GetKnowledgeRulesAllAsync(userId);
+                if (!knowledgeRulesResult.IsSuccessful)
+                    return knowledgeRulesResult.ToResult<UserConfiguration>();
+
+                userConfig.KnowledgeRules = knowledgeRulesResult.Data;
+
+                var filesResult = await GetFilesAllAsync(userId);
+                if (!filesResult.IsSuccessful)
+                    return filesResult.ToResult<UserConfiguration>();
+
+                userConfig.Files = filesResult.Data;
             }
+
+            return Result<UserConfiguration>.Success(userConfig);
         }
 
-        public async Task<bool> UpdateUserConfigurationGranularAsync(Guid userId, 
+        public async Task<Result> UpdateUserConfigurationGranularAsync(
+            Guid userId,
             List<KnowledgeRule>? knowledgeRulesToAdd,
             List<FileEntity>? filesToAdd,
             List<Guid>? knowledgeRulesToDelete,
             List<Guid>? filesToDelete)
         {
-            try
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            var existingConfig = await _context.UserConfigurations
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (existingConfig == null)
             {
-                using var transaction = await _context.Database.BeginTransactionAsync();
-
-                var existingConfig = await _context.UserConfigurations
-                    .FirstOrDefaultAsync(u => u.UserId == userId);
-
-                if (existingConfig == null)
+                var newConfig = new UserConfiguration
                 {
-                    var newConfig = new UserConfiguration
-                    {
-                        UserId = userId
-                    };
-                    _context.UserConfigurations.Add(newConfig);
-                }
-
-                if (knowledgeRulesToDelete == null)
-                {
-                    var allRulesToRemove = await _context.KnowledgeRules
-                        .Where(kr => EF.Property<Guid>(kr, "UserId") == userId)
-                        .ToListAsync();
-                    _context.KnowledgeRules.RemoveRange(allRulesToRemove);
-                }
-                else if (knowledgeRulesToDelete.Any())
-                {
-                    var rulesToRemove = await _context.KnowledgeRules
-                        .Where(kr => knowledgeRulesToDelete.Contains(kr.Id) && 
-                                     EF.Property<Guid>(kr, "UserId") == userId)
-                        .ToListAsync();
-                    _context.KnowledgeRules.RemoveRange(rulesToRemove);
-                }
-
-                if (filesToDelete == null)
-                {
-                    var allFilesToRemove = await _context.Files
-                        .Where(f => EF.Property<Guid>(f, "UserId") == userId)
-                        .ToListAsync();
-                    _context.Files.RemoveRange(allFilesToRemove);
-                }
-                else if (filesToDelete.Any())
-                {
-                    var filesToRemove = await _context.Files
-                        .Where(f => filesToDelete.Contains(f.Id) && 
-                                    EF.Property<Guid>(f, "UserId") == userId)
-                        .ToListAsync();
-                    _context.Files.RemoveRange(filesToRemove);
-                }
-
-                if (knowledgeRulesToAdd?.Any() == true)
-                {
-                    foreach (var kr in knowledgeRulesToAdd)
-                    {
-                        _context.Entry(kr).Property("UserId").CurrentValue = userId;
-                        _context.KnowledgeRules.Add(kr);
-                    }
-                }
-
-                if (filesToAdd?.Any() == true)
-                {
-                    foreach (var file in filesToAdd)
-                    {
-                        _context.Entry(file).Property("UserId").CurrentValue = userId;
-                        _context.Files.Add(file);
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return true;
+                    UserId = userId
+                };
+                _context.UserConfigurations.Add(newConfig);
             }
-            catch (Exception ex)
-            {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante l'aggiornamento della configurazione utente: {ex.Message}. Dettagli: {innerMessage}", ex);
-            }
-        }
 
-        public async Task<List<UnansweredQuestion>> GetUnansweredQuestionsAsync()
-        {
-            try
+            if (knowledgeRulesToDelete == null)
             {
-                var questions = await _context.UnansweredQuestions
-                    .AsNoTracking()
-                    .OrderByDescending(q => q.Timestamp)
+                var allRulesToRemove = await _context.KnowledgeRules
+                    .Where(kr => EF.Property<Guid>(kr, "UserId") == userId)
                     .ToListAsync();
-
-                return questions;
+                _context.KnowledgeRules.RemoveRange(allRulesToRemove);
             }
-            catch (Exception ex)
+            else if (knowledgeRulesToDelete.Any())
             {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante il recupero delle domande non risposte: {ex.Message}. Dettagli: {innerMessage}", ex);
+                var rulesToRemove = await _context.KnowledgeRules
+                    .Where(kr => knowledgeRulesToDelete.Contains(kr.Id) &&
+                                 EF.Property<Guid>(kr, "UserId") == userId)
+                    .ToListAsync();
+                _context.KnowledgeRules.RemoveRange(rulesToRemove);
             }
-        }
 
-
-
-        public async Task<bool> DeleteUnansweredQuestionAsync(Guid questionId)
-        {
-            try
+            if (filesToDelete == null)
             {
-                var question = await _context.UnansweredQuestions
-                    .FirstOrDefaultAsync(q => q.Id == questionId);
+                var allFilesToRemove = await _context.Files
+                    .Where(f => EF.Property<Guid>(f, "UserId") == userId)
+                    .ToListAsync();
+                _context.Files.RemoveRange(allFilesToRemove);
+            }
+            else if (filesToDelete.Any())
+            {
+                var filesToRemove = await _context.Files
+                    .Where(f => filesToDelete.Contains(f.Id) &&
+                                EF.Property<Guid>(f, "UserId") == userId)
+                    .ToListAsync();
+                _context.Files.RemoveRange(filesToRemove);
+            }
 
-                if (question == null)
+            if (knowledgeRulesToAdd?.Any() == true)
+            {
+                foreach (var kr in knowledgeRulesToAdd)
                 {
-                    return false;
+                    _context.Entry(kr).Property("UserId").CurrentValue = userId;
+                    _context.KnowledgeRules.Add(kr);
                 }
-
-                _context.UnansweredQuestions.Remove(question);
-                await _context.SaveChangesAsync();
-
-                return true;
             }
-            catch (Exception ex)
+
+            if (filesToAdd?.Any() == true)
             {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante l'eliminazione della domanda non risposta: {ex.Message}. Dettagli: {innerMessage}", ex);
+                foreach (var file in filesToAdd)
+                {
+                    _context.Entry(file).Property("UserId").CurrentValue = userId;
+                    _context.Files.Add(file);
+                }
             }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Result.Success();
         }
 
-#region PRIVATE METHODS
-        private async Task<List<KnowledgeRule>> GetKnowledgeRulesAllAsync(Guid userId)
+        public async Task<Result<List<UnansweredQuestion>>> GetUnansweredQuestionsAsync()
         {
-            try
+            var questions = await _context.UnansweredQuestions
+                .AsNoTracking()
+                .OrderByDescending(q => q.Timestamp)
+                .ToListAsync();
+
+            return Result<List<UnansweredQuestion>>.Success(questions);
+        }
+
+        public async Task<Result> DeleteUnansweredQuestionAsync(Guid questionId)
         {
-            return await _context.KnowledgeRules
+            var question = await _context.UnansweredQuestions
+                .FirstOrDefaultAsync(q => q.Id == questionId);
+
+            if (question == null)
+            {
+                return Result.Failure("Question not found");
+            }
+
+            _context.UnansweredQuestions.Remove(question);
+            await _context.SaveChangesAsync();
+
+            return Result.Success();
+        }
+
+        #region PRIVATE METHODS
+        private async Task<Result<List<KnowledgeRule>>> GetKnowledgeRulesAllAsync(Guid userId)
+        {
+            var rules = await _context.KnowledgeRules
                 .AsNoTracking()
                 .Where(kr => EF.Property<Guid>(kr, "UserId") == userId)
                 .ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante il recupero delle knowledge rules per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
-            }
+            return Result<List<KnowledgeRule>>.Success(rules);
         }
 
-        private async Task<List<FileEntity>> GetFilesAllAsync(Guid userId)
+        private async Task<Result<List<FileEntity>>> GetFilesAllAsync(Guid userId)
         {
-            try
-        {
-            return await _context.Files
+            var files = await _context.Files
                 .AsNoTracking()
                 .Where(f => EF.Property<Guid>(f, "UserId") == userId)
                 .ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante il recupero dei file per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
-            }
+            return Result<List<FileEntity>>.Success(files);
         }
-#endregion
+        #endregion
     }
 } 

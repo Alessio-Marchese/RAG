@@ -2,9 +2,37 @@
 
 ## Recent Updates
 
-### Enhanced Error Handling (Latest)
-- **Improved Exception Messages**: All services now provide detailed, specific error messages instead of generic responses
-- **Better Debugging**: Database, S3, and Pinecone operations now include context-specific error information
+### Session-Based Architecture (Latest)
+- **SessionService**: Centralized user session management
+- **Simplified Controllers**: No more userId parameters in endpoints
+- **Clean ExceptionBoundary**: Removed complex authorization methods
+- **Automatic User Context**: User ID automatically available in facades and services
+- **Improved Security**: User can only access their own data through session
+- **Simplified API**: Endpoints are cleaner and more intuitive
+
+### Result Pattern Implementation
+- **Result Pattern**: Using custom Result classes for type-safe result pattern
+- **Automatic Error Propagation**: Errors propagate automatically from services to controllers
+- **Type Safety**: Compile-time checking of operation results
+- **Consistent Error Handling**: All errors follow the same format and structure
+- **Null Safety**: Eliminated null reference exceptions with proper result handling
+- **Enhanced ExceptionBoundary**: Service iniettabile che gestisce automaticamente la conversione dei Result in risposte HTTP
+
+### Architecture Refactoring with Facade Pattern
+- **UsersFacade**: Introduced facade pattern to separate business logic from controllers
+- **UnansweredQuestionsFacade**: Extended facade pattern to unanswered questions operations
+- **Complete Business Logic Migration**: All business logic moved from controllers to facades
+- **Improved Separation of Concerns**: Controllers now focus only on HTTP concerns (routing, authorization, validation)
+- **Better Testability**: Business logic is now isolated and easier to unit test
+- **Cleaner Controller Code**: Controllers are more focused and maintainable with minimal dependencies
+- **Dependency Injection**: Proper registration of facades in DI container
+- **Reduced Controller Complexity**: Controllers now have only two dependencies (facade + ExceptionBoundary)
+- **Consistent Architecture**: All controllers follow the same pattern for maintainability
+
+### Enhanced Error Handling
+- **Centralized Exception Management**: All exceptions are handled by ExceptionBoundary at controller level
+- **Removed Redundant Try-Catch**: Eliminated all try-catch blocks from services and facades for cleaner code
+- **Automatic Error Propagation**: Exceptions bubble up automatically to ExceptionBoundary
 - **User-Friendly Responses**: Users receive meaningful error messages that help identify the root cause of issues
 - **Consistent Error Format**: All errors follow a standardized format with clear descriptions and context
 - **AWS Credentials Fix**: Fixed production issue where AWS S3 operations were failing due to incorrect credential configuration - now uses explicit credentials from appsettings.json
@@ -56,11 +84,16 @@ This ASP.NET Core application manages user configuration, file uploads to AWS S3
 - **UsersController**: Manages complete user configurations (GET/PUT) including knowledge rules and files
 - **UnansweredQuestionsController**: Manages unanswered questions (GET, DELETE)
 
+### Facades
+- **UsersFacade**: Business logic layer for user configuration operations, separating concerns from controllers
+- **UnansweredQuestionsFacade**: Business logic layer for unanswered questions operations, separating concerns from controllers
+
 ### Services
 - **SqliteDataService**: Handles data persistence with SQLite database
 - **UserConfigService**: Parsing and serialization of user configuration
-- **S3StorageService**: AWS S3 storage management
+- **IS3StorageService/S3StorageService**: AWS S3 storage management
 - **PineconeService**: Pinecone embeddings management
+- **IExceptionBoundary/ExceptionBoundary**: Service iniettabile per gestione centralizzata delle eccezioni e conversione automatica dei Result in risposte HTTP
 - **CookieJwtValidationMiddleware**: Custom middleware for JWT validation
 
 ### Data Models
@@ -391,26 +424,239 @@ POST /api/files/upload
 Content-Type: multipart/form-data
 ```
 
-## ExceptionBoundary: Centralized Exception Handling in Controllers
+## Architecture Patterns
 
-To avoid duplicating try-catch blocks in controllers, the project uses the `ExceptionBoundary` pattern. This pattern centralizes exception handling and simplifies endpoint implementation.
+### Facade Pattern: Business Logic Separation
 
-### How it works
-- Controllers no longer write try-catch blocks for error handling.
-- The endpoint logic is passed to `ExceptionBoundary.RunAsync`, which handles exceptions and returns a consistent HTTP response.
-- Common exceptions (e.g. `ArgumentException`, `UnauthorizedAccessException`) are mapped to appropriate HTTP responses (400, 401, etc.), while others result in a 500 response.
-- **Enhanced Error Messages**: All services now include specific error messages in their exceptions, providing detailed information about what went wrong during operations.
+The application uses the Facade pattern to separate business logic from controllers, improving maintainability and testability.
 
-### Usage Example
+#### How it works
+- **Controllers**: Handle HTTP concerns (routing, authorization, request/response formatting)
+- **Facades**: Handle business logic and orchestrate service calls
+- **Services**: Handle data access and external integrations
+
+#### Benefits
+- **Separation of Concerns**: Clear boundaries between layers
+- **Testability**: Business logic can be tested independently
+- **Maintainability**: Changes to business logic don't affect HTTP layer
+- **Reusability**: Facades can be used by different controllers if needed
+
+#### Current Implementation
+- **UsersFacade**: Handles all user configuration business logic including:
+  - Retrieving user configuration with automatic initialization
+  - Updating user configuration with Pinecone embeddings cleanup
+  - S3 storage synchronization
+  - Database operations orchestration
+- **IUsersFacade**: Interface for dependency injection and testing
+- **Registration**: Properly registered in DI container in Program.cs
+- **Controller Simplification**: UsersController now has only one dependency and focuses purely on HTTP concerns
+
+#### Result: Ultra-Clean Controller
+```csharp
+[ApiController]
+[Route("api/[Controller]")]
+[Authorize]
+public class UsersController : ControllerBase
+{
+    private readonly IUsersFacade _usersFacade;
+
+    public UsersController(IUsersFacade usersFacade)
+    {
+        _usersFacade = usersFacade;
+    }
+
+    [HttpGet("{userId}/configuration")]
+    public Task<IActionResult> GetUserConfiguration(Guid userId)
+    {
+        return ExceptionBoundary.RunWithAuthorizationAsync(this, userId, async () =>
+        {
+            var response = await _usersFacade.GetUserConfigurationAsync(userId);
+            return Ok(response);
+        });
+    }
+
+    [HttpPut("{userId}/configuration")]
+    public Task<IActionResult> UpdateUserConfiguration(Guid userId, [FromBody] UpdateUserConfigurationRequest request)
+    {
+        return ExceptionBoundary.RunWithValidationAndAuthorizationAsync(this, userId, async () =>
+        {
+            var success = await _usersFacade.UpdateUserConfigurationAsync(userId, request);
+            return success ? Ok(new SuccessResponse { Message = "Configuration updated successfully" })
+                         : StatusCode(500, new ErrorResponse { Message = "Update failed" });
+        });
+    }
+}
+```
+
+### Session-Based Architecture: Simplified User Context
+
+The application uses a session-based architecture to automatically provide user context throughout the application layers, eliminating the need for manual user ID passing.
+
+#### How it works
+- **SessionService**: Centralized service that extracts user ID from JWT claims
+- **Automatic Context**: User ID is automatically available in facades and services
+- **Simplified Controllers**: No need to pass userId parameters in endpoints
+- **Security**: Users can only access their own data through session context
+- **Clean API**: Endpoints are more intuitive and RESTful
+
+#### Benefits
+- **Simplified Controllers**: No more complex authorization logic
+- **Automatic Security**: Users can only access their own data
+- **Cleaner API**: Endpoints don't need userId parameters
+- **Reduced Complexity**: Less boilerplate code
+- **Better UX**: More intuitive API design
+
+#### Usage Examples
+```csharp
+// Controller - No userId parameter needed
+[HttpGet("configuration")]
+public Task<IActionResult> GetUserConfiguration()
+{
+    return ExceptionBoundary.RunWithResultAsync(async () =>
+    {
+        return await _usersFacade.GetUserConfigurationAsync();
+    });
+}
+
+// Facade - User ID automatically available
+public async Task<Result<UserConfigurationResponse>> GetUserConfigurationAsync()
+{
+    var userId = _sessionService.GetCurrentUserId();
+    if (!userId.HasValue)
+    {
+        return Result<UserConfigurationResponse>.Error("User not authenticated", 401);
+    }
+    // Use userId.Value for operations...
+}
+
+// Service - Receives userId from facade
+public async Task<Result<UserConfiguration>> GetUserConfigurationAsync(Guid userId)
+{
+    // Database operations with userId...
+}
+```
+
+### Result Pattern: Type-Safe Operation Results
+
+The application uses the Result pattern to provide type-safe operation results and automatic error propagation throughout the application layers.
+
+#### How it works
+- **Result<T>**: Generic result type that can contain either a success value or an error
+- **SuccessResult<T>**: Contains a successful operation result
+- **ErrorResult<T>**: Contains error information with message and status code
+- **Automatic Propagation**: Errors automatically propagate from services to controllers
+- **Type Safety**: Compile-time checking ensures proper result handling
+
+#### Benefits
+- **Type Safety**: Compile-time checking of operation results
+- **Null Safety**: Eliminates null reference exceptions
+- **Consistent Error Handling**: All errors follow the same format
+- **Automatic Propagation**: Errors bubble up automatically
+- **Testability**: Easy to test success and error scenarios
+- **Maintainability**: Clear error flow and handling
+
+#### Usage Examples
+```csharp
+// Service layer
+public async Task<Result<UserConfiguration>> GetUserConfigurationAsync(Guid userId)
+{
+    try
+    {
+        var config = await _context.UserConfigurations.FindAsync(userId);
+        return Result<UserConfiguration>.Success(config);
+    }
+    catch (Exception ex)
+    {
+        return Result<UserConfiguration>.Error($"Error: {ex.Message}", 500);
+    }
+}
+
+// Facade layer
+public async Task<Result<UserConfigurationResponse>> GetUserConfigurationAsync()
+{
+    var userId = _sessionService.GetCurrentUserId();
+    if (!userId.HasValue)
+    {
+        return Result<UserConfigurationResponse>.Error("User not authenticated", 401);
+    }
+    
+    var result = await _dataService.GetUserConfigurationAsync(userId.Value);
+    if (!result.IsSuccess)
+    {
+        return Result<UserConfigurationResponse>.Error(result.ErrorMessage!, result.StatusCode ?? 500);
+    }
+    // Process success result...
+}
+
+// Controller layer
+public Task<IActionResult> GetUserConfiguration()
+{
+    return ExceptionBoundary.RunWithResultAsync(_usersFacade.GetUserConfigurationAsync);
+}
+```
+
+### ExceptionBoundary: Simplified Exception Handling
+
+The project uses a simplified `ExceptionBoundary` pattern that centralizes exception handling and Result pattern conversion, making controllers clean and focused.
+
+#### Available Methods
+- **`RunAsync`**: Basic exception handling
+#### Metodi Disponibili
+- **`RunAsync<T>(Func<Task<Result<T>>> action)`**: Per funzioni che restituiscono `Result<T>`
+- **`RunAsync(Func<Task<Result>> action)`**: Per funzioni che restituiscono `Result`
+
+#### Come Funziona
+- I controller non scrivono più blocchi try-catch per la gestione degli errori
+- La logica dell'endpoint viene passata al metodo appropriato dell'ExceptionBoundary
+- La conversione del pattern Result viene gestita automaticamente
+- I controller si concentrano solo sull'orchestrazione delle chiamate ai facade
+- **Messaggi di Errore Dettagliati**: Tutti i servizi includono messaggi di errore specifici
+
+#### Esempi di Utilizzo
 
 ```csharp
-[HttpGet("{userId}/configuration")]
-public Task<IActionResult> GetUserConfiguration(Guid userId)
+// Controller con iniezione dell'ExceptionBoundary
+public class UsersController : ControllerBase
 {
-    return ExceptionBoundary.RunAsync(async () =>
+    private readonly IUsersFacade _usersFacade;
+    private readonly IExceptionBoundary _exceptionBoundary;
+
+    public UsersController(IUsersFacade usersFacade, IExceptionBoundary exceptionBoundary)
     {
-        // ... endpoint logic ...
-    });
+        _usersFacade = usersFacade;
+        _exceptionBoundary = exceptionBoundary;
+    }
+
+    // Per funzioni che restituiscono Result<T>
+    [HttpGet("configuration")]
+    public Task<IActionResult> GetUserConfiguration()
+        => _exceptionBoundary.RunAsync(_usersFacade.GetUserConfigurationAsync);
+
+    // Per funzioni che restituiscono Result
+    [HttpPut("configuration")]
+    public Task<IActionResult> UpdateUserConfiguration([FromBody] UpdateUserConfigurationRequest request)
+        => _exceptionBoundary.RunAsync(() => _usersFacade.UpdateUserConfigurationAsync(request));
+}
+
+// Esempio con UnansweredQuestionsFacade
+public class UnansweredQuestionsController : ControllerBase
+{
+    private readonly IUnansweredQuestionsFacade _unansweredQuestionsFacade;
+    private readonly IExceptionBoundary _exceptionBoundary;
+
+    public UnansweredQuestionsController(IUnansweredQuestionsFacade unansweredQuestionsFacade, IExceptionBoundary exceptionBoundary)
+    {
+        _unansweredQuestionsFacade = unansweredQuestionsFacade;
+        _exceptionBoundary = exceptionBoundary;
+    }
+
+    [HttpGet]
+    public Task<IActionResult> GetUnansweredQuestions()
+        => _exceptionBoundary.RunAsync(_unansweredQuestionsFacade.GetUnansweredQuestionsAsync);
+
+    [HttpDelete("{questionId}")]
+    public Task<IActionResult> DeleteUnansweredQuestion(Guid questionId)
+        => _exceptionBoundary.RunAsync(() => _unansweredQuestionsFacade.DeleteUnansweredQuestionAsync(questionId));
 }
 ```
 
@@ -423,14 +669,35 @@ The application now provides detailed error messages for all operations:
 - **Pinecone Operations**: Specific messages for embedding deletion failures, API communication issues, etc.
 - **File Processing**: Detailed error messages for file format issues, extraction failures, etc.
 
-### Advantages
-- **Centralization**: All exception handling is in one place.
-- **Cleanliness**: Controllers are more readable and maintainable.
-- **Customization**: It's easy to change error handling logic in the future.
-- **Debugging**: Detailed error messages help identify and resolve issues quickly.
-- **User Experience**: Users receive meaningful error messages instead of generic ones.
+### Vantaggi della Nuova Implementazione
+- **Servizio Iniettabile**: Facilmente testabile e sostituibile tramite DI
+- **Adattamento Automatico**: Un solo metodo che si adatta al tipo di ritorno
+- **Centralizzazione**: Tutta la gestione delle eccezioni è in un unico punto
+- **Pulizia**: I controller sono più leggibili e mantenibili
+- **Personalizzazione**: Facile cambiare la logica di gestione degli errori in futuro
+- **Debugging**: Messaggi di errore dettagliati aiutano a identificare e risolvere problemi rapidamente
+- **User Experience**: Gli utenti ricevono messaggi di errore significativi invece di generici
+- **Type Safety**: Controllo dei tipi a compile-time per i Result
+- **Codice Ultra-Pulito**: Rimossi tutti i try-catch ridondanti da servizi e facade
 
-The class is located in `Services/ExceptionBoundary.cs`.
+Il servizio è registrato in `Program.cs` e implementato in `Services/ExceptionBoundary.cs`.
+
+### Rimozione Try-Catch Ridondanti
+
+Tutti i try-catch sono stati rimossi da:
+- **Services**: SqliteDataService, S3StorageService, PineconeService, UserConfigService
+- **Facades**: UsersFacade, UnansweredQuestionsFacade
+- **Controllers**: Già puliti grazie all'ExceptionBoundary
+
+**Eccezioni mantenute:**
+- **ExceptionBoundary**: Gestione centralizzata delle eccezioni
+- **CookieJwtValidationMiddleware**: Gestione specifica errori JWT
+
+**Vantaggi:**
+- **Codice più pulito**: Meno boilerplate e più leggibilità
+- **Performance**: Meno overhead di try-catch annidati
+- **Manutenibilità**: Gestione errori centralizzata
+- **Debugging**: Stack trace più chiari senza livelli multipli di catch
 
 ## Dependencies
 - .NET 8.0 (LTS)
@@ -441,6 +708,7 @@ The class is located in `Services/ExceptionBoundary.cs`.
 - Swashbuckle.AspNetCore (6.5.0)
 - UglyToad.PdfPig (for PDF)
 - Xceed.Words.NET (for DOCX)
+- **Result Pattern**: Implementazione personalizzata in `Entities/Result.cs`
 
 ## Security
 - **JWT Authentication**: Validation via custom middleware

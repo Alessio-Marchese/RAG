@@ -1,74 +1,58 @@
 using Amazon.S3;
-using Amazon.S3.Transfer;
+using Amazon.S3.Model;
 
 namespace RAG.Services
 {
     public interface IS3StorageService
     {
-        Task UploadFileAsync(string userId, IFormFile file, string? fileName = null);
-        Task<bool> DeleteAllUserFilesAsync(string userId);
-    }   
-
+        Task DeleteAllUserFilesAsync(string userId);
+        Task UploadFileAsync(string userId, IFormFile file, string fileName);
+    }
     public class S3StorageService : IS3StorageService
     {
         private readonly IAmazonS3 _s3Client;
         private readonly string _bucketName;
 
-        public S3StorageService(IAmazonS3 s3Client, IConfiguration config)
+        public S3StorageService(IAmazonS3 s3Client, IConfiguration configuration)
         {
             _s3Client = s3Client;
-            _bucketName = config["AWS:BucketName"] ?? throw new InvalidOperationException("AWS:BucketName is not configured");
+            _bucketName = configuration["AWS:BucketName"] ?? throw new InvalidOperationException("AWS BucketName is not configured");
         }
 
-        public async Task UploadFileAsync(string userId, IFormFile file, string? fileName = null)
+        public async Task DeleteAllUserFilesAsync(string userId)
         {
-            try
+            var listRequest = new ListObjectsV2Request
             {
-            var key = $"{userId}/{Guid.NewGuid()}_{fileName ?? file.FileName}";
-            using var stream = file.OpenReadStream();
-            var uploadRequest = new TransferUtilityUploadRequest
-            {
-                InputStream = stream,
-                Key = key,
                 BucketName = _bucketName,
-                ContentType = file.ContentType
+                Prefix = $"{userId}/"
             };
-            var transferUtility = new TransferUtility(_s3Client);
-            await transferUtility.UploadAsync(uploadRequest);
-            }
-            catch (Exception ex)
-            {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante l'upload del file {fileName ?? file.FileName} su S3 per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
-            }
-        }
 
-        public async Task<bool> DeleteAllUserFilesAsync(string userId)
-        {
-            try
+            var listResponse = await _s3Client.ListObjectsV2Async(listRequest);
+            
+            if (listResponse.S3Objects.Any())
             {
-                var listRequest = new Amazon.S3.Model.ListObjectsV2Request
+                var deleteRequest = new DeleteObjectsRequest
                 {
                     BucketName = _bucketName,
-                    Prefix = $"{userId}/"
+                    Objects = listResponse.S3Objects.Select(obj => new KeyVersion { Key = obj.Key }).ToList()
                 };
-                var listResponse = await _s3Client.ListObjectsV2Async(listRequest);
-                if (listResponse?.S3Objects != null && listResponse.S3Objects.Count > 0)
-                {
-                    var deleteRequest = new Amazon.S3.Model.DeleteObjectsRequest
-                    {
-                        BucketName = _bucketName,
-                        Objects = listResponse.S3Objects.Select(o => new Amazon.S3.Model.KeyVersion { Key = o.Key }).ToList()
-                    };
-                    await _s3Client.DeleteObjectsAsync(deleteRequest);
-                }
-                return true;
+
+                await _s3Client.DeleteObjectsAsync(deleteRequest);
             }
-            catch (Exception ex)
+        }
+
+        public async Task UploadFileAsync(string userId, IFormFile file, string fileName)
+        {
+            using var stream = file.OpenReadStream();
+            var putRequest = new PutObjectRequest
             {
-                var innerMessage = ex.InnerException?.Message ?? "Nessun dettaglio aggiuntivo";
-                throw new Exception($"Errore durante l'eliminazione dei file dall'S3 per l'utente {userId}: {ex.Message}. Dettagli: {innerMessage}", ex);
-            }
+                BucketName = _bucketName,
+                Key = $"{userId}/{fileName}",
+                InputStream = stream,
+                ContentType = file.ContentType
+            };
+
+            await _s3Client.PutObjectAsync(putRequest);
         }
     }
 } 

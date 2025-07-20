@@ -68,37 +68,30 @@ namespace RAG.Services
         }
         private static string ExtractTextFromBase64File(string base64Content, string contentType, string fileName)
         {
-            try
+            var fileBytes = Convert.FromBase64String(base64Content);
+            using var stream = new MemoryStream(fileBytes);
+            
+            var ext = Path.GetExtension(fileName).ToLowerInvariant();
+            
+            if (contentType == "application/pdf" || ext == ".pdf")
             {
-                var fileBytes = Convert.FromBase64String(base64Content);
-                using var stream = new MemoryStream(fileBytes);
-                
-                var ext = Path.GetExtension(fileName).ToLowerInvariant();
-                
-                if (contentType == "application/pdf" || ext == ".pdf")
-                        {
-                    return ExtractTextFromPdf(stream);
-                        }
-                else if (contentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || ext == ".docx")
-                        {
-                    return ExtractTextFromDocx(stream);
-                        }
-                else if (contentType == "text/plain" || ext == ".txt")
-                        {
-                    using var reader = new StreamReader(stream);
-                    return reader.ReadToEnd();
-                        }
-                        else
-                        {
-                    using var reader = new StreamReader(stream);
-                    return reader.ReadToEnd();
-                        }
+                return ExtractTextFromPdf(stream);
             }
-            catch (Exception ex)
-        {
-                return $"Error extracting text from file {fileName}: {ex.Message}";
-                    }
-                }
+            else if (contentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || ext == ".docx")
+            {
+                return ExtractTextFromDocx(stream);
+            }
+            else if (contentType == "text/plain" || ext == ".txt")
+            {
+                using var reader = new StreamReader(stream);
+                return reader.ReadToEnd();
+            }
+            else
+            {
+                using var reader = new StreamReader(stream);
+                return reader.ReadToEnd();
+            }
+        }
 #endregion
     }
 } 

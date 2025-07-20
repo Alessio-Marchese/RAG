@@ -1,32 +1,43 @@
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Threading.Tasks;
+using Alessio.Marchese.Utils.Core;
 
 namespace RAG.Services
 {
-    public static class ExceptionBoundary
+    public interface IExceptionBoundary
     {
-        public static async Task<IActionResult> RunAsync(Func<Task<IActionResult>> action)
+        Task<IActionResult> RunAsync<T>(Func<Task<Result<T>>> action);
+        Task<IActionResult> RunAsync(Func<Task<Result>> action);
+    }
+
+    public class ExceptionBoundary : IExceptionBoundary
+    {
+        public async Task<IActionResult> RunAsync<T>(Func<Task<Result<T>>> action)
         {
             try
             {
-                return await action();
-            }
-            catch (ArgumentException ex)
-            {
-                return new BadRequestObjectResult(new { error = ex.Message });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return new UnauthorizedObjectResult(new { error = ex.Message });
+                var result = await action();
+                return result.IsSuccessful
+                    ? new OkObjectResult(result.Data)
+                    : new ObjectResult(result.ErrorMessage) { StatusCode = 500 };
             }
             catch (Exception ex)
             {
-                // Here you could log the error if you have a logging system
-                return new ObjectResult(new { error = "Internal server error", details = ex.Message })
-                {
-                    StatusCode = 500
-                };
+                return new ObjectResult(ex.Message);
+            }
+        }
+
+        public async Task<IActionResult> RunAsync(Func<Task<Result>> action)
+        {
+            try
+            {
+                var result = await action();
+                return result.IsSuccessful
+                    ? new OkResult()
+                    : new ObjectResult(result.ErrorMessage) { StatusCode = 500 };
+            }
+            catch (Exception ex)
+            {
+                return new ObjectResult(ex.Message);
             }
         }
     }
