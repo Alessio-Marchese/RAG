@@ -101,7 +101,6 @@ namespace RAG.Facades
 
                 var filesToAdd = request.Files?.Select(f => new RAG.Entities.File
                 {
-                    Id = f.Id ?? Guid.NewGuid(),
                     Name = f.Name,
                     ContentType = f.ContentType,
                     Size = f.Size,
