@@ -63,9 +63,11 @@ $RECYCLE.BIN/
 *~
 
 # Secrets
+appsettings.json
 appsettings.Development.json
 secrets.json
 
-# SQLite temporary files
+# SQLite database and temporary files
+*.db
 *.db-shm
 *.db-wal 
