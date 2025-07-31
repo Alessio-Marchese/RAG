@@ -6,24 +6,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace RAG.Migrations
 {
     /// <inheritdoc />
-    public partial class second : Migration
+    public partial class initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "UnansweredQuestions",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Question = table.Column<string>(type: "TEXT", nullable: false),
-                    Timestamp = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UnansweredQuestions", x => x.Id);
-                });
-
             migrationBuilder.CreateTable(
                 name: "UserConfigurations",
                 columns: table => new
@@ -43,7 +30,6 @@ namespace RAG.Migrations
                     Name = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
                     ContentType = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
                     Size = table.Column<long>(type: "INTEGER", nullable: false),
-                    Content = table.Column<string>(type: "TEXT", nullable: false),
                     UserConfigurationUserId = table.Column<Guid>(type: "TEXT", nullable: true),
                     UserId = table.Column<Guid>(type: "TEXT", nullable: false)
                 },
@@ -105,9 +91,6 @@ namespace RAG.Migrations
 
             migrationBuilder.DropTable(
                 name: "KnowledgeRules");
-
-            migrationBuilder.DropTable(
-                name: "UnansweredQuestions");
 
             migrationBuilder.DropTable(
                 name: "UserConfigurations");

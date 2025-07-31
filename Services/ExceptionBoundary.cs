@@ -16,13 +16,21 @@ namespace RAG.Services
             try
             {
                 var result = await action();
-                return result.IsSuccessful
-                    ? new OkObjectResult(result.Data)
-                    : new ObjectResult(result.ErrorMessage) { StatusCode = 500 };
+                if (result.IsSuccessful)
+                    return new OkObjectResult(result.Data);
+                
+                return new ObjectResult(new { 
+                    error = result.ErrorMessage ?? "Operation failed due to validation or business logic error",
+                    operation = "Data retrieval operation"
+                }) { StatusCode = 400 };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return new ObjectResult(ex.Message);
+                return new ObjectResult(new { 
+                    error = "Internal server error occurred during data retrieval operation. Please contact system administrator.",
+                    operation = "Data retrieval operation",
+                    timestamp = DateTime.UtcNow
+                }) { StatusCode = 500 };
             }
         }
 
@@ -31,13 +39,21 @@ namespace RAG.Services
             try
             {
                 var result = await action();
-                return result.IsSuccessful
-                    ? new OkResult()
-                    : new ObjectResult(result.ErrorMessage) { StatusCode = 500 };
+                if (result.IsSuccessful)
+                    return new OkResult();
+                
+                return new ObjectResult(new { 
+                    error = result.ErrorMessage ?? "Operation failed due to validation or business logic error",
+                    operation = "Data modification operation"
+                }) { StatusCode = 400 };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return new ObjectResult(ex.Message);
+                return new ObjectResult(new { 
+                    error = "Internal server error occurred during data modification operation. Please contact system administrator.",
+                    operation = "Data modification operation",
+                    timestamp = DateTime.UtcNow
+                }) { StatusCode = 500 };
             }
         }
     }

@@ -1,10 +1,11 @@
 using System.Security.Claims;
+using Alessio.Marchese.Utils.Core;
 
 namespace RAG.Services
 {
     public interface ISessionService
     {
-        Guid? GetCurrentUserId();
+        Result<Guid> GetCurrentUserId();
     }
     public class SessionService : ISessionService
     {
@@ -15,24 +16,23 @@ namespace RAG.Services
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public Guid? GetCurrentUserId()
+        public Result<Guid> GetCurrentUserId()
         {
             var user = _httpContextAccessor.HttpContext?.User;
-            if (user == null || !user.Identity?.IsAuthenticated == true)
-            {
-                return null;
-            }
-
+            if (user == null)
+                return Result<Guid>.Failure("User context not available. Please ensure you are authenticated.");
+            
             var userIdString = user.FindFirst("sub")?.Value
                 ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
                 ?? user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
             
-            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            {
-                return null;
-            }
+            if (string.IsNullOrEmpty(userIdString))
+                return Result<Guid>.Failure("User ID not found in claims. Please ensure you are properly authenticated.");
             
-            return userId;
+            if (!Guid.TryParse(userIdString, out var userId))
+                return Result<Guid>.Failure("Invalid user ID format in authentication token.");
+            
+            return Result<Guid>.Success(userId);
         }
     }
 } 

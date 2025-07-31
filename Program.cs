@@ -4,75 +4,77 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Amazon.S3;
 using Amazon.Runtime;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using RAG.Data;
 using RAG.Services;
 using RAG.Middlewares;
 using RAG.Facades;
+using RAG.Repositories;
+using RAG.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// In produzione, la porta viene gestita da ASPNETCORE_URLS o appsettings.Production.json
+builder.Services.Configure<AppConfiguration>(builder.Configuration);
+builder.Services.AddSingleton<IValidateOptions<AppConfiguration>, ConfigurationValidator>();
 
-// Configura i parametri di validazione JWT per il middleware custom
-var jwtSection = builder.Configuration.GetSection("Jwt");
-var jwtKey = jwtSection["Key"] ?? throw new InvalidOperationException("JWT Key is not configured");
-var tokenValidationParameters = new TokenValidationParameters
+builder.Services.AddSingleton<TokenValidationParameters>(sp =>
 {
-    ValidateIssuer = true,
-    ValidateAudience = true,
-    ValidateLifetime = true,
-    ValidateIssuerSigningKey = true,
-    ValidIssuer = jwtSection["Issuer"],
-    ValidAudience = jwtSection["Audience"],
-    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-};
-builder.Services.AddSingleton(tokenValidationParameters);
+    var config = sp.GetRequiredService<IOptions<AppConfiguration>>().Value;
+    return new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = config.Jwt.Issuer,
+        ValidAudience = config.Jwt.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config.Jwt.Key))
+    };
+});
 
-// Servizi AWS S3
-var awsSection = builder.Configuration.GetSection("AWS");
-var awsAccessKey = awsSection["AccessKey"] ?? throw new InvalidOperationException("AWS AccessKey is not configured");
-var awsSecretKey = awsSection["SecretKey"] ?? throw new InvalidOperationException("AWS SecretKey is not configured");
-var awsRegion = awsSection["Region"] ?? throw new InvalidOperationException("AWS Region is not configured");
+builder.Services.AddSingleton<IAmazonS3>(sp =>
+{
+    var config = sp.GetRequiredService<IOptions<AppConfiguration>>().Value;
+    var awsCredentials = new BasicAWSCredentials(config.AWS.AccessKey, config.AWS.SecretKey);
+    var awsRegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(config.AWS.Region);
+    return new AmazonS3Client(awsCredentials, awsRegionEndpoint);
+});
 
-var awsCredentials = new Amazon.Runtime.BasicAWSCredentials(awsAccessKey, awsSecretKey);
-var awsRegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(awsRegion);
+builder.Services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+{
+    var config = serviceProvider.GetRequiredService<IOptions<AppConfiguration>>().Value;
+    var connectionString = builder.Environment.IsDevelopment() 
+        ? "Data Source=rag_database.db"
+        : config.ConnectionStrings.DefaultConnection;
+    options.UseSqlite(connectionString);
+});
 
-builder.Services.AddSingleton<IAmazonS3>(sp => new AmazonS3Client(awsCredentials, awsRegionEndpoint));
-builder.Services.AddScoped<S3StorageService>();
-
-// Configurazione database SQLite
-var connectionString = builder.Environment.IsDevelopment() 
-    ? "Data Source=rag_database.db"
-    : builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
-
-// Servizi applicazione
-builder.Services.AddScoped<IUserConfigService, UserConfigService>();
-builder.Services.AddScoped<IS3StorageService, S3StorageService>();
-builder.Services.AddScoped<SqliteDataService>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<ICacheService, CacheService>();
+builder.Services.AddScoped<IFileValidationService, FileValidationService>();
+builder.Services.AddScoped<IUserConfigurationService, UserConfigurationService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
+builder.Services.AddScoped<IS3Service, S3Service>();
 builder.Services.AddScoped<IUsersFacade, UsersFacade>();
-builder.Services.AddScoped<IUnansweredQuestionsFacade, UnansweredQuestionsFacade>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<IExceptionBoundary, ExceptionBoundary>();
+
+builder.Services.AddScoped<IKnowledgeRuleRepository, KnowledgeRuleRepository>();
+builder.Services.AddScoped<IFileRepository, FileRepository>();
 builder.Services.AddHttpContextAccessor();
 
-// Configurazione Pinecone da appsettings.json
-var pineconeSection = builder.Configuration.GetSection("Pinecone");
-var pineconeApiKey = pineconeSection["ApiKey"] ?? throw new InvalidOperationException("Pinecone ApiKey is not configured");
-var pineconeIndexHost = pineconeSection["IndexHost"] ?? throw new InvalidOperationException("Pinecone IndexHost is not configured");
 builder.Services.AddHttpClient<PineconeService>();
 builder.Services.AddSingleton<IPineconeService>(sp =>
 {
+    var config = sp.GetRequiredService<IOptions<AppConfiguration>>().Value;
     var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(PineconeService));
-    return new PineconeService(httpClient, pineconeApiKey, pineconeIndexHost);
+    return new PineconeService(httpClient, config.Pinecone.ApiKey, config.Pinecone.IndexHost);
 });
 
-// Configurazione OpenAPI per .NET 8.0
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configurazione CORS dinamica in base all'ambiente
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddCors(options =>
@@ -84,7 +86,7 @@ if (builder.Environment.IsDevelopment())
                             .AllowCredentials());
     });
 }
-else // Production o altri ambienti
+else
 {
     builder.Services.AddCors(options =>
     {
@@ -96,7 +98,6 @@ else // Production o altri ambienti
     });
 }
 
-// Configurazione Kestrel per produzione
 if (!builder.Environment.IsDevelopment())
 {
     builder.WebHost.ConfigureKestrel(options =>
@@ -106,7 +107,6 @@ if (!builder.Environment.IsDevelopment())
             listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
         });
     });
-    // Forza l'uso della porta 5000 per evitare conflitti
     builder.WebHost.UseUrls("http://0.0.0.0:5000");
 }
 
@@ -114,28 +114,24 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Inizializzazione database
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     context.Database.EnsureCreated();
 }
 
-// Applica la policy CORS globale (sempre, anche in produzione)
 app.UseCors("AllowFrontend");
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
     app.UseHttpsRedirection();
-    // Applica la policy CORS globale (deve essere prima di qualsiasi middleware custom)
-    // app.UseCors("AllowAll"); // This line is now redundant as it's moved outside
 }
 
-// Middleware custom per validazione JWT da cookie
-app.UseMiddleware<CookieJwtValidationMiddleware>();
+app.UseMiddleware<CookieJwtValidationMiddleware>(app.Services.GetRequiredService<TokenValidationParameters>());
+
+app.UseMiddleware<RateLimitMiddleware>();
 
 app.UseAuthorization();
 

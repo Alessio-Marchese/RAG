@@ -13,6 +13,6 @@ namespace RAG.Entities
         [Required]
         public long Size { get; set; }
         [Required]
-        public string Content { get; set; } = string.Empty;
+        public Guid UserId { get; set; }
     }
 } 

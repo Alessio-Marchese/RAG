@@ -1,139 +1,91 @@
 using RAG.DTOs;
 using RAG.Services;
-using RAG.Entities;
-using System.Text;
+using RAG.Mappers;
 using Alessio.Marchese.Utils.Core;
 
 namespace RAG.Facades
 {
-
     public interface IUsersFacade
     {
-        Task<Result<UserConfigurationResponse>> GetUserConfigurationAsync();
+        Task<Result<UserConfigurationResponse>> GetUserConfigurationPaginatedAsync(int skip, int take);
         Task<Result> UpdateUserConfigurationAsync(UpdateUserConfigurationRequest request);
     }
+    
     public class UsersFacade : IUsersFacade
     {
-        private readonly SqliteDataService _dataService;
-        private readonly IPineconeService _pineconeService;
-        private readonly IUserConfigService _userConfigService;
-        private readonly IS3StorageService _storageService;
+        private readonly IUserConfigurationService _userConfigurationService;
+        private readonly IFileStorageService _fileStorageService;
         private readonly ISessionService _sessionService;
 
-        public UsersFacade(SqliteDataService dataService, IPineconeService pineconeService, IUserConfigService userConfigService, IS3StorageService storageService, ISessionService sessionService)
+        public UsersFacade(
+            IUserConfigurationService userConfigurationService,
+            IFileStorageService fileStorageService,
+            ISessionService sessionService)
         {
-            _dataService = dataService;
-            _pineconeService = pineconeService;
-            _userConfigService = userConfigService;
-            _storageService = storageService;
+            _userConfigurationService = userConfigurationService;
+            _fileStorageService = fileStorageService;
             _sessionService = sessionService;
         }
 
-        public async Task<Result<UserConfigurationResponse>> GetUserConfigurationAsync()
+        public async Task<Result<UserConfigurationResponse>> GetUserConfigurationPaginatedAsync(int skip, int take)
         {
-                var userId = _sessionService.GetCurrentUserId();
-                if (!userId.HasValue)
-                    return Result<UserConfigurationResponse>.Failure("User not authenticated");
+            var userIdResult = _sessionService.GetCurrentUserId();
+            if (!userIdResult.IsSuccessful)
+                return Result<UserConfigurationResponse>.Failure(userIdResult.ErrorMessage);
 
-                var configurationResult = await _dataService.GetUserConfigurationAsync(userId.Value);
-                
-                if (!configurationResult.IsSuccessful)
-                    return configurationResult.ToResult<UserConfigurationResponse>();
-
-                var configuration = configurationResult.Data;
-                
-                if (configuration == null)
-                {
-                    configuration = new UserConfiguration
-                    {
-                        UserId = userId.Value,
-                        KnowledgeRules = [],
-                        Files = []
-                    };
-                    
-                    var updateResult = await _dataService.UpdateUserConfigurationGranularAsync(userId.Value, 
-                        [], 
-                        [],
-                        null, null);
-                    
-                    if (!updateResult.IsSuccessful)
-                    {
-                        return updateResult.ToResult<UserConfigurationResponse>();
-                    }
-                }
-
-                var response = new UserConfigurationResponse
-                {
-                    KnowledgeRules = configuration.KnowledgeRules.Select(kr => new KnowledgeRuleResponse
-                    {
-                        Content = kr.Content
-                    }).ToList(),
-                    Files = configuration.Files.Select(f => new FileResponse
-                    {
-                        Id = f.Id,
-                        Name = f.Name,
-                        ContentType = f.ContentType,
-                        Size = f.Size,
-                        Content = f.Content
-                    }).ToList()
-                };
-
-                return Result<UserConfigurationResponse>.Success(response);
+            return await _userConfigurationService.GetUserConfigurationPaginatedAsync(userIdResult.Data, skip, take);
         }
 
         public async Task<Result> UpdateUserConfigurationAsync(UpdateUserConfigurationRequest request)
         {
-                var userId = _sessionService.GetCurrentUserId();
-                if (!userId.HasValue)
-                    return Result.Failure("User not authenticated");
+            var userIdResult = _sessionService.GetCurrentUserId();
+            if (!userIdResult.IsSuccessful)
+                return Result.Failure(userIdResult.ErrorMessage);
+            
+            if (request == null)
+                return Result.Failure("Update request is null. Please provide valid configuration data.");
 
-                if (request == null)
-                    return Result.Failure("Request cannot be null");
+            var userId = userIdResult.Data;
 
-                var pineconeNamespace = userId.Value.ToString();
-                await _pineconeService.DeleteAllEmbeddingsInNamespaceAsync(pineconeNamespace);
+            if (request.FilesToDelete?.Any() == true)
+            {
+                var deleteResult = await _fileStorageService.DeleteFilesAsync(userId, request.FilesToDelete);
+                if (!deleteResult.IsSuccessful)
+                    return deleteResult.ToResult();
+            }
 
-                var knowledgeRulesToAdd = request.KnowledgeRules?.Select(kr => new KnowledgeRule
-                {
-                    Id = kr.Id ?? Guid.NewGuid(),
-                    Content = kr.Content
-                }).ToList() ?? [];
+            if (request.KnowledgeRulesToDelete?.Any() == true)
+            {
+                var deleteEmbeddingsResult = await _fileStorageService.UpdateKnowledgeRulesFileAsync(userId, []);
+                if (!deleteEmbeddingsResult.IsSuccessful)
+                    return deleteEmbeddingsResult.ToResult();
+            }
 
-                var filesToAdd = request.Files?.Select(f => new RAG.Entities.File
-                {
-                    Name = f.Name,
-                    ContentType = f.ContentType,
-                    Size = f.Size,
-                    Content = f.Content
-                }).ToList() ?? [];
+            var updateResult = await _userConfigurationService.UpdateUserConfigurationAsync(userId, request);
+            if (!updateResult.IsSuccessful)
+                return updateResult.ToResult();
 
-                var updateResult = await _dataService.UpdateUserConfigurationGranularAsync(userId.Value,
-                    knowledgeRulesToAdd,
-                    filesToAdd,
-                    null,
-                    null
-                );
+            if (request.Files?.Any() == true)
+            {
+                var uploadResult = await _fileStorageService.UploadFilesAsync(userId, request.Files);
+                if (!uploadResult.IsSuccessful)
+                    return uploadResult.ToResult();
+            }
 
-                if (!updateResult.IsSuccessful)
-                    return updateResult.ToResult();
+            if (request.KnowledgeRules?.Any() == true || request.KnowledgeRulesToDelete?.Any() == true)
+            {
+                var configResult = await _userConfigurationService.GetUserConfigurationAsync(userId);
+                if (!configResult.IsSuccessful)
+                    return configResult.ToResult();
 
-                var allInfo = _userConfigService.SerializeUserConfigForS3(
-                    request.KnowledgeRules ?? [],
-                    request.Files ?? []
-                );
-                
-                var fileNameToUpload = "user_config.txt";
-                var fileBytes = Encoding.UTF8.GetBytes(allInfo);
-                using var stream = new MemoryStream(fileBytes);
+                var remainingKnowledgeRules = configResult.Data?.KnowledgeRules?.Select(kr => kr.ToEntity()).ToList() ?? [];
 
-                await _storageService.DeleteAllUserFilesAsync(userId.Value.ToString());
-                await _storageService.UploadFileAsync(userId.Value.ToString(), new FormFile(stream, 0, fileBytes.Length, "file", fileNameToUpload)
-                {
-                    Headers = new HeaderDictionary(),
-                    ContentType = "text/plain"
-                }, fileNameToUpload);
+                var updateKnowledgeRulesResult = await _fileStorageService.UpdateKnowledgeRulesFileAsync(userId, remainingKnowledgeRules);
+                if (!updateKnowledgeRulesResult.IsSuccessful)
+                    return updateKnowledgeRulesResult.ToResult();
+            }
 
-                return Result.Success();
+            return Result.Success();
         }
     }
 }

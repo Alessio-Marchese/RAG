@@ -11,8 +11,8 @@ using RAG.Data;
 namespace RAG.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250716214833_second")]
-    partial class second
+    [Migration("20250730141658_initial")]
+    partial class initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,10 +24,6 @@ namespace RAG.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ContentType")
@@ -83,26 +79,6 @@ namespace RAG.Migrations
                         .HasDatabaseName("IX_KnowledgeRules_UserId");
 
                     b.ToTable("KnowledgeRules");
-                });
-
-            modelBuilder.Entity("RAG.Entities.UnansweredQuestion", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Question")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Timestamp")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("UnansweredQuestions");
                 });
 
             modelBuilder.Entity("RAG.Entities.UserConfiguration", b =>

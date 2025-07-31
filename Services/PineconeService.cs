@@ -1,11 +1,12 @@
 using System.Text;
 using System.Text.Json;
+using Alessio.Marchese.Utils.Core;
 
 namespace RAG.Services
 {
     public interface IPineconeService
     {
-        Task<bool> DeleteAllEmbeddingsInNamespaceAsync(string namespaceName);
+        Task<Result> DeleteEmbeddingsByFileNameAsync(string namespaceName, string fileName);
     }
 
     public class PineconeService : IPineconeService
@@ -24,14 +25,20 @@ namespace RAG.Services
             _httpClient.DefaultRequestHeaders.Add("X-Pinecone-API-Version", "2025-04");
         }
 
-        public async Task<bool> DeleteAllEmbeddingsInNamespaceAsync(string namespaceName)
+        public async Task<Result> DeleteEmbeddingsByFileNameAsync(string namespaceName, string fileName)
         {
             if (string.IsNullOrWhiteSpace(namespaceName))
-                return false;
+                return Result.Failure("Namespace name cannot be null or empty");
+
+            if (string.IsNullOrWhiteSpace(fileName))
+                return Result.Failure("File name cannot be null or empty");
 
             var requestBody = new
             {
-                deleteAll = true,
+                filter = new
+                {
+                    file_name = $"{namespaceName}/{fileName}"
+                },
                 @namespace = namespaceName
             };
 
@@ -41,7 +48,16 @@ namespace RAG.Services
             var url = $"https://{_indexHost}/vectors/delete";
             HttpResponseMessage response = await _httpClient.PostAsync(url, content);
 
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode)
+                return Result.Success();
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return Result.Success();
+            }
+            else
+                return Result.Failure($"Pinecone API returned error: {response.StatusCode} - {response.ReasonPhrase}");
         }
+
+
     }
 }

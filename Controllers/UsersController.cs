@@ -20,12 +20,44 @@ namespace RAG.Controllers
             _exceptionBoundary = exceptionBoundary;
         }
 
-        [HttpGet("configuration")]
-        public Task<IActionResult> GetUserConfiguration()
-            => _exceptionBoundary.RunAsync(_usersFacade.GetUserConfigurationAsync);
+        [HttpGet("configuration/paginated")]
+        public Task<IActionResult> GetUserConfigurationPaginated([FromQuery] int skip = 0, [FromQuery] int take = 10)
+        {
+            if (take <= 0 || take > 100)
+            {
+                return Task.FromResult<IActionResult>(
+                    new BadRequestObjectResult(new { 
+                        error = "Take parameter must be between 1 and 100",
+                        operation = "Get user configuration paginated",
+                        endpoint = "/api/Users/configuration/paginated",
+                        method = "GET"
+                    }));
+            }
+            
+            return _exceptionBoundary.RunAsync(() => _usersFacade.GetUserConfigurationPaginatedAsync(skip, take));
+        }
 
         [HttpPut("configuration")]
         public Task<IActionResult> UpdateUserConfiguration([FromBody] UpdateUserConfigurationRequest request)
-            => _exceptionBoundary.RunAsync(() => _usersFacade.UpdateUserConfigurationAsync(request));
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+                
+                return Task.FromResult<IActionResult>(
+                    new BadRequestObjectResult(new { 
+                        error = "Request validation failed. Please check the provided data and try again.",
+                        validationErrors = errors,
+                        operation = "Update user configuration",
+                        endpoint = "/api/Users/configuration",
+                        method = "PUT"
+                    }));
+            }
+            
+            return _exceptionBoundary.RunAsync(() => _usersFacade.UpdateUserConfigurationAsync(request));
+        }
     }
 } 

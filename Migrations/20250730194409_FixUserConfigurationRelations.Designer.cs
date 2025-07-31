@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RAG.Data;
 
@@ -10,9 +11,11 @@ using RAG.Data;
 namespace RAG.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250730194409_FixUserConfigurationRelations")]
+    partial class FixUserConfigurationRelations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.0");
@@ -41,7 +44,8 @@ namespace RAG.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_Files_UserId");
 
                     b.ToTable("Files");
                 });
@@ -61,9 +65,46 @@ namespace RAG.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_KnowledgeRules_UserId");
 
                     b.ToTable("KnowledgeRules");
+                });
+
+            modelBuilder.Entity("RAG.Entities.UserConfiguration", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserConfigurations");
+                });
+
+            modelBuilder.Entity("RAG.Entities.File", b =>
+                {
+                    b.HasOne("RAG.Entities.UserConfiguration", null)
+                        .WithMany("Files")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RAG.Entities.KnowledgeRule", b =>
+                {
+                    b.HasOne("RAG.Entities.UserConfiguration", null)
+                        .WithMany("KnowledgeRules")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RAG.Entities.UserConfiguration", b =>
+                {
+                    b.Navigation("Files");
+
+                    b.Navigation("KnowledgeRules");
                 });
 #pragma warning restore 612, 618
         }
