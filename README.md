@@ -1,127 +1,110 @@
-# RAG API - Refactored Version
+# RAG API
 
-## 🚀 Miglioramenti Implementati
+A REST API for managing files and knowledge rules in a RAG (Retrieval-Augmented Generation) system.
 
-### 🔒 Sicurezza
-- **Validazione File Robusta**: Implementato `FileValidationService` con whitelist di estensioni e MIME types
-- **Middleware JWT Migliorato**: Gestione sicura degli errori senza esposizione di stack trace
-- **Rate Limiting**: Protezione contro abusi con limite di 100 richieste/minuto per utente
-- **Validazione Configurazione**: Controlli di sicurezza su JWT SecretKey e parametri critici
-- **Validazione Input**: Data Annotations su tutti i DTOs per prevenire input malevoli
+## What is this project
 
-### 🏗️ Architettura e Struttura
-- **Unit of Work Pattern**: Gestione centralizzata delle transazioni database
-- **Separazione Responsabilità**: Servizi specializzati per configurazioni utente e storage file
-- **Repository Pattern**: Accesso ai dati attraverso interfacce ben definite
-- **Dependency Injection**: Configurazione centralizzata di tutti i servizi
-- **Caching**: Sistema di cache in-memory per migliorare le performance
+This API allows users to:
+- Upload and manage files (PDF, DOC, TXT, etc.)
+- Create and modify custom knowledge rules
+- Store files on AWS S3
+- Index content on Pinecone for semantic search
+- Manage user configurations with caching
 
-### ⚡ Performance e Efficienza
-- **Query Ottimizzate**: Uso di `AsNoTracking()` per operazioni di sola lettura
-- **Operazioni Parallele**: Upload/delete file eseguiti in parallelo
-- **Caching Intelligente**: Cache delle configurazioni utente con TTL di 5 minuti
-- **Gestione Memoria**: Streaming per file grandi e validazione dimensioni
-- **Connection Pooling**: Configurazione ottimizzata di HttpClient
+## Architecture
 
-### 🧹 Codice Pulito
-- **Validazione Modelli**: Controllo automatico dei DTOs con messaggi di errore chiari
-- **Gestione Errori Centralizzata**: `ExceptionBoundary` per gestione uniforme degli errori
-- **Naming Consistente**: Standardizzazione dei nomi e convenzioni
-- **Documentazione**: Commenti e struttura chiara del codice
-- **Testabilità**: Interfacce ben definite per facilitare i test
+The project follows a layered architecture with:
 
-## 📁 Struttura del Progetto
+- **Controllers**: Handle HTTP requests
+- **Facades**: Orchestrate business logic
+- **Services**: Implement specific logic (file storage, cache, validation)
+- **Repositories**: Manage data access
+- **Entities**: Domain models (File, KnowledgeRule)
+- **DTOs**: Data transfer objects with validations
+
+## Main Technologies
+
+- **.NET 8** with ASP.NET Core
+- **Entity Framework Core** with SQLite
+- **AWS S3** for file storage
+- **Pinecone** for vector indexing
+- **JWT** for authentication
+- **Swagger** for API documentation
+
+## Main Features
+
+### File Management
+- Upload with type and size validation
+- Storage on AWS S3
+- Indexing on Pinecone for semantic search
+- Deletion with automatic embedding cleanup
+
+### Knowledge Rules
+- Creation and modification of custom rules per user
+- Pagination for managing large data volumes
+
+### Security
+- JWT authentication with claims validation
+- Terms and conditions and privacy policy acceptance control
+- Rate limiting (100 requests/minute per user)
+- File validation with extension whitelist
+- Security checks on input
+- User storage limit (10MB total between files and knowledge rules)
+
+### Performance
+- User configuration caching (5 minutes TTL)
+- Parallel operations for upload/delete
+- Optimized queries with Entity Framework
+
+## Project Structure
 
 ```
 RAG/
-├── Configuration/          # Configurazioni e validatori
-├── Controllers/           # API Controllers
-├── Data/                  # Entity Framework Context
-├── DTOs/                  # Data Transfer Objects con validazioni
-├── Entities/              # Modelli di dominio
-├── Facades/               # Orchestrazione servizi
-├── Middlewares/           # Middleware personalizzati
-├── Repositories/          # Accesso ai dati
-├── Services/              # Logica di business
-└── Mappers/               # Conversione DTO ↔ Entity
+├── Controllers/           # API endpoints
+├── Facades/              # Business logic orchestration
+├── Services/             # Business logic
+├── Repositories/         # Data access
+├── Entities/             # Domain models
+├── DTOs/                 # Data Transfer Objects
+├── Configuration/        # Configurations and validators
+├── Middlewares/          # Custom middlewares
+└── Data/                 # Entity Framework context
 ```
 
-## 🔧 Servizi Principali
+## Configuration
 
-### `IUserConfigurationService`
-Gestisce le configurazioni utente con caching e validazioni.
+1. Copy `appsettings.example.json` to `appsettings.json`
+2. Configure AWS S3 credentials
+3. Configure Pinecone API key
+4. Set JWT secret key (minimum 32 characters)
 
-### `IFileStorageService`
-Orchestra le operazioni su S3 e Pinecone con operazioni parallele.
+## Startup
 
-### `IFileValidationService`
-Validazione robusta dei file con controlli di sicurezza.
+```bash
+dotnet run
+```
 
-### `IUnitOfWork`
-Gestione transazionale centralizzata del database.
+The API will be available at `https://localhost:5001` with Swagger documentation at `/swagger`.
 
-### `ICacheService`
-Sistema di cache in-memory per migliorare le performance.
+## Database
 
-### `IRateLimitService`
-Protezione contro abusi con rate limiting per utente.
+The SQLite database is created automatically on first startup with tables:
+- `Files`: Metadata of uploaded files
+- `KnowledgeRules`: Knowledge rules per user
 
-## 🚀 Avvio del Progetto
+## API Endpoints
 
-1. **Configurazione**: Copia `appsettings.example.json` in `appsettings.json` e configura i parametri
-2. **Database**: Il database SQLite viene creato automaticamente al primo avvio
-3. **Avvio**: `dotnet run` o `dotnet watch` per sviluppo
+- `GET /api/Users/configuration/paginated` - Paginated list of user configurations
+- `PUT /api/Users/configuration` - Update user configuration
+- `GET /api/Users/storage/usage` - Get current storage usage (in bytes)
 
-## 🔒 Configurazione Sicurezza
+All endpoints require JWT authentication and acceptance of terms and conditions and privacy policy.
 
-### JWT
-- SecretKey minimo 32 caratteri
-- Expiration massimo 24 ore
-- Validazione Issuer/Audience
+## JWT Claims Validation
 
-### File Upload
-- Estensioni consentite: .txt, .pdf, .doc, .docx, .rtf, .md
-- Dimensione massima: 10MB
-- Validazione MIME type
-- Controllo contenuto malevolo
+The authentication middleware automatically verifies the following JWT token claims:
+- `termsAccepted`: Must be `true` to access APIs
+- `privacyAccepted`: Must be `true` to access APIs
 
-### Rate Limiting
-- 100 richieste/minuto per utente per endpoint
-- Headers informativi: X-RateLimit-Remaining, X-RateLimit-Limit
-
-## 📊 Performance
-
-- **Caching**: Configurazioni utente cache per 5 minuti
-- **Query Ottimizzate**: Include e AsNoTracking per ridurre carico database
-- **Operazioni Parallele**: Upload/delete file eseguiti in parallelo
-- **Connection Pooling**: HttpClient configurato per pooling
-
-## 🧪 Testing
-
-Il codice è strutturato per facilitare i test:
-- Interfacce ben definite per tutti i servizi
-- Dependency injection per mock
-- Separazione chiara tra logica di business e accesso ai dati
-
-## 🔄 Migrazione da Versione Precedente
-
-1. Aggiorna le dipendenze nel `Program.cs`
-2. Rimuovi riferimenti a `ISqliteService` (sostituito da `IUnitOfWork`)
-3. Aggiorna le chiamate ai servizi per utilizzare le nuove interfacce
-4. Verifica che le validazioni dei DTOs non blocchino le richieste esistenti
-
-## 📈 Monitoraggio
-
-- Rate limiting headers per monitorare l'utilizzo
-- Cache hit/miss tracking disponibile
-- Errori gestiti uniformemente con messaggi sicuri
-- Performance migliorate con operazioni parallele
-
-## 🔮 Roadmap
-
-- [ ] Migrazione a PostgreSQL per produzione
-- [ ] Implementazione Redis per cache distribuita
-- [ ] Aggiunta di metriche e monitoring
-- [ ] Implementazione di audit logging
-- [ ] Aggiunta di test unitari e di integrazione
+If either claim is `false` or missing, access is denied with an appropriate error message.
 

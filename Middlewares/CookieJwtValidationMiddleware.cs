@@ -61,9 +61,17 @@ namespace RAG.Middlewares
                 var email = principal.FindFirst(ClaimTypes.Email)?.Value;
                 var name = principal.FindFirst("name")?.Value;
                 var subscription = principal.FindFirst("subscription")?.Value;
+                var termsAccepted = principal.FindFirst("termsAccepted")?.Value;
+                var privacyAccepted = principal.FindFirst("privacyAccepted")?.Value;
 
                 if (string.IsNullOrWhiteSpace(userId) || !Guid.TryParse(userId, out _))
                     return Result.Failure("Authentication token is invalid or corrupted. Please log in again.");
+
+                if (string.IsNullOrWhiteSpace(termsAccepted) || !bool.TryParse(termsAccepted, out var termsAcceptedBool) || !termsAcceptedBool)
+                    return Result.Failure("Terms and conditions must be accepted to access this service. Please accept the terms and conditions.");
+
+                if (string.IsNullOrWhiteSpace(privacyAccepted) || !bool.TryParse(privacyAccepted, out var privacyAcceptedBool) || !privacyAcceptedBool)
+                    return Result.Failure("Privacy policy must be accepted to access this service. Please accept the privacy policy.");
 
                 context.User = principal;
                 return Result.Success();

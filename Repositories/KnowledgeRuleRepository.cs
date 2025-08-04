@@ -8,6 +8,7 @@ namespace RAG.Repositories
     {
         Task<List<KnowledgeRule>> GetByUserIdAsync(Guid userId);
         Task<List<KnowledgeRule>> GetByUserIdPaginatedAsync(Guid userId, int skip, int take);
+        Task<List<KnowledgeRule>> GetByIdsAsync(List<Guid> ids);
         Task<KnowledgeRule> CreateAsync(KnowledgeRule knowledgeRule);
         Task<bool> DeleteMultipleAsync(List<Guid> ids, Guid userId);
     }
@@ -40,6 +41,13 @@ namespace RAG.Repositories
                 .Where(kr => kr.UserId == userId)
                 .Skip(skip)
                 .Take(take)
+                .ToListAsync();
+        }
+
+        public async Task<List<KnowledgeRule>> GetByIdsAsync(List<Guid> ids)
+        {
+            return await _context.KnowledgeRules
+                .Where(kr => ids.Contains(kr.Id))
                 .ToListAsync();
         }
 

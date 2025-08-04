@@ -10,6 +10,7 @@ namespace RAG.Repositories
         Task<List<FileEntity>> GetByUserIdPaginatedAsync(Guid userId, int skip, int take);
         Task<List<string>> GetFileNamesByUserIdAsync(Guid userId);
         Task<List<string>> GetFileNamesByIdsAsync(Guid userId, List<Guid> fileIds);
+        Task<List<FileEntity>> GetByIdsAsync(List<Guid> ids);
         Task<FileEntity> CreateAsync(FileEntity file);
         Task<bool> DeleteMultipleAsync(List<Guid> ids, Guid userId);
     }
@@ -59,6 +60,13 @@ namespace RAG.Repositories
             return await _context.Files
                 .Where(f => fileIds.Contains(f.Id) && f.UserId == userId)
                 .Select(f => f.Name)
+                .ToListAsync();
+        }
+
+        public async Task<List<FileEntity>> GetByIdsAsync(List<Guid> ids)
+        {
+            return await _context.Files
+                .Where(f => ids.Contains(f.Id))
                 .ToListAsync();
         }
 

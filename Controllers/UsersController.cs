@@ -59,5 +59,11 @@ namespace RAG.Controllers
             
             return _exceptionBoundary.RunAsync(() => _usersFacade.UpdateUserConfigurationAsync(request));
         }
+
+        [HttpGet("storage/usage")]
+        public Task<IActionResult> GetUserStorageUsage()
+        {
+            return _exceptionBoundary.RunAsync(() => _usersFacade.GetUserStorageUsageAsync());
+        }
     }
 } 

@@ -54,6 +54,7 @@ builder.Services.AddScoped<ICacheService, CacheService>();
 builder.Services.AddScoped<IFileValidationService, FileValidationService>();
 builder.Services.AddScoped<IUserConfigurationService, UserConfigurationService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IUserStorageLimitService, UserStorageLimitService>();
 builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
 builder.Services.AddScoped<IS3Service, S3Service>();
 builder.Services.AddScoped<IUsersFacade, UsersFacade>();

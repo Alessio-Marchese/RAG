@@ -9,6 +9,7 @@ namespace RAG.Facades
     {
         Task<Result<UserConfigurationResponse>> GetUserConfigurationPaginatedAsync(int skip, int take);
         Task<Result> UpdateUserConfigurationAsync(UpdateUserConfigurationRequest request);
+        Task<Result<long>> GetUserStorageUsageAsync();
     }
     
     public class UsersFacade : IUsersFacade
@@ -16,15 +17,18 @@ namespace RAG.Facades
         private readonly IUserConfigurationService _userConfigurationService;
         private readonly IFileStorageService _fileStorageService;
         private readonly ISessionService _sessionService;
+        private readonly IUserStorageLimitService _userStorageLimitService;
 
         public UsersFacade(
             IUserConfigurationService userConfigurationService,
             IFileStorageService fileStorageService,
-            ISessionService sessionService)
+            ISessionService sessionService,
+            IUserStorageLimitService userStorageLimitService)
         {
             _userConfigurationService = userConfigurationService;
             _fileStorageService = fileStorageService;
             _sessionService = sessionService;
+            _userStorageLimitService = userStorageLimitService;
         }
 
         public async Task<Result<UserConfigurationResponse>> GetUserConfigurationPaginatedAsync(int skip, int take)
@@ -46,6 +50,10 @@ namespace RAG.Facades
                 return Result.Failure("Update request is null. Please provide valid configuration data.");
 
             var userId = userIdResult.Data;
+
+            var storageLimitValidation = await _userStorageLimitService.ValidateStorageLimitAsync(userId, request);
+            if (!storageLimitValidation.IsSuccessful)
+                return storageLimitValidation;
 
             if (request.FilesToDelete?.Any() == true)
             {
@@ -86,6 +94,16 @@ namespace RAG.Facades
             }
 
             return Result.Success();
+        }
+
+        public async Task<Result<long>> GetUserStorageUsageAsync()
+        {
+            var userIdResult = _sessionService.GetCurrentUserId();
+            if (!userIdResult.IsSuccessful)
+                return Result<long>.Failure(userIdResult.ErrorMessage);
+
+            var usage = await _userStorageLimitService.GetCurrentUserStorageSizeAsync(userIdResult.Data);
+            return Result<long>.Success(usage);
         }
     }
 }
