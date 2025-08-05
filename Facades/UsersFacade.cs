@@ -9,7 +9,6 @@ namespace RAG.Facades
     {
         Task<Result<UserConfigurationResponse>> GetUserConfigurationPaginatedAsync(int skip, int take);
         Task<Result> UpdateUserConfigurationAsync(UpdateUserConfigurationRequest request);
-        Task<Result<long>> GetUserStorageUsageAsync();
     }
     
     public class UsersFacade : IUsersFacade
@@ -53,7 +52,7 @@ namespace RAG.Facades
 
             var storageLimitValidation = await _userStorageLimitService.ValidateStorageLimitAsync(userId, request);
             if (!storageLimitValidation.IsSuccessful)
-                return storageLimitValidation;
+                return storageLimitValidation.ToResult();
 
             if (request.FilesToDelete?.Any() == true)
             {
@@ -94,16 +93,6 @@ namespace RAG.Facades
             }
 
             return Result.Success();
-        }
-
-        public async Task<Result<long>> GetUserStorageUsageAsync()
-        {
-            var userIdResult = _sessionService.GetCurrentUserId();
-            if (!userIdResult.IsSuccessful)
-                return Result<long>.Failure(userIdResult.ErrorMessage);
-
-            var usage = await _userStorageLimitService.GetCurrentUserStorageSizeAsync(userIdResult.Data);
-            return Result<long>.Success(usage);
         }
     }
 }

@@ -11,8 +11,7 @@ namespace RAG.DTOs
         [Required(ErrorMessage = "Content type is required and cannot be empty")]
         [StringLength(255, ErrorMessage = "Content type cannot exceed 255 characters")]
         public string ContentType { get; set; } = string.Empty;
-        
-        [Range(1, 10485760, ErrorMessage = "File size must be between 1 byte and 10MB")]
+        [Range(1, long.MaxValue, ErrorMessage = "File size must be greater than 0")]
         public long Size { get; set; }
         
         [Required(ErrorMessage = "File content is required and cannot be empty")]

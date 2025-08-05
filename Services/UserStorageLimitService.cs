@@ -8,13 +8,12 @@ namespace RAG.Services
     public interface IUserStorageLimitService
     {
         Task<Result> ValidateStorageLimitAsync(Guid userId, UpdateUserConfigurationRequest request);
-        Task<long> GetCurrentUserStorageSizeAsync(Guid userId);
     }
 
     public class UserStorageLimitService : IUserStorageLimitService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private const long MAX_STORAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+        private const long MAX_STORAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
         public UserStorageLimitService(IUnitOfWork unitOfWork)
         {
@@ -42,7 +41,7 @@ namespace RAG.Services
             return Result.Success();
         }
 
-        public async Task<long> GetCurrentUserStorageSizeAsync(Guid userId)
+        private async Task<long> GetCurrentUserStorageSizeAsync(Guid userId)
         {
             var files = await _unitOfWork.Files.GetByUserIdAsync(userId);
             var knowledgeRules = await _unitOfWork.KnowledgeRules.GetByUserIdAsync(userId);
