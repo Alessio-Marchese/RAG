@@ -24,6 +24,14 @@ namespace RAG.Services
                     operation = "Data retrieval operation"
                 }) { StatusCode = 400 };
             }
+            catch (BadHttpRequestException ex) when (ex.StatusCode == 413)
+            {
+                return new ObjectResult(new { 
+                    error = "File size exceeds the maximum allowed limit of 10MB",
+                    operation = "File upload operation",
+                    maxSizeMB = 10
+                }) { StatusCode = 400 };
+            }
             catch (Exception)
             {
                 return new ObjectResult(new { 
@@ -45,6 +53,14 @@ namespace RAG.Services
                 return new ObjectResult(new { 
                     error = result.ErrorMessage ?? "Operation failed due to validation or business logic error",
                     operation = "Data modification operation"
+                }) { StatusCode = 400 };
+            }
+            catch (BadHttpRequestException ex) when (ex.StatusCode == 413)
+            {
+                return new ObjectResult(new { 
+                    error = "File size exceeds the maximum allowed limit of 10MB",
+                    operation = "File upload operation",
+                    maxSizeMB = 10
                 }) { StatusCode = 400 };
             }
             catch (Exception)

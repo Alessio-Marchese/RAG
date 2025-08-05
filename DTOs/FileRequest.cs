@@ -13,7 +13,6 @@ namespace RAG.DTOs
         public string ContentType { get; set; } = string.Empty;
         [Range(1, long.MaxValue, ErrorMessage = "File size must be greater than 0")]
         public long Size { get; set; }
-        
         [Required(ErrorMessage = "File content is required and cannot be empty")]
         public string Content { get; set; } = string.Empty;
     }
